@@ -1,4 +1,4 @@
-Analyses of all Mammal units except for Batha - which is in the folder "Ella units"
+Analyses of all Mammal units 
 output folder - all figs. (each unit has it's own folder) + outputs from mvabund models
 data folder - data used for script and other output tables + summaries + coeff tables
 functions folder - all functions used for mammal analyses
