@@ -1,0 +1,668 @@
+---
+title: "Mammal data - Planted Conifer Forests"
+author: "Talia Gabay & Ron Chen"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE)
+#knitr::opts_chunk$set(dev = "cairo_pdf", dev.args=list(cairo_pdf = list(family='Arial')))
+
+
+
+#Load packages
+library(devtools)
+library(rlang)
+library(ggplot2)
+library(data.table)
+library(dplyr)
+library(mvabund)
+library(kableExtra)
+library(lme4)
+library(MASS)
+library(vegan)
+library(jtools)
+library(interactions)
+library(car)
+library(ecoCopula)
+library(chron)
+library(data.table)
+library(readxl)
+library(performance)
+library(emmeans)
+library(extrafont)
+
+#Load functions
+source("functions/plot_alpha_diversity_cycle_num.R")
+source("functions/plot_model_effect_mammals_Maquis_and_Forest.R")
+source("functions/plot_interaction_mammals_Maquis_and_Forest.R")
+source_url("https://raw.githubusercontent.com/ronchen1/ron_functions/d2d0bab4dc65f29e53d316ae4098d0469711905b/R/multiplot.R", sha1 = "eef55df1963ba201f57cf44513f566298756fd4f")
+
+```
+
+
+
+```{r load data, include=FALSE}
+# Abundance table - all data
+all.mammal.abundances <- read.csv("Data/mammals.abundance.matrix.TG.csv", header = TRUE, sep =",") %>% as.data.table()
+
+
+#Species names
+sci_names <- readxl::read_excel(path = 'Data/Scientific.names.mammals.xlsx') %>% as.data.table()
+#Make species list
+sci_names_list <- as.character(sort(unique(sci_names$SciName)))
+#Change species column names in abundance table 
+colnames(all.mammal.abundances)[27:40] <- sci_names_list 
+#colnames(all.mammal.abundances)[25:38] <- sci_names_list   
+   
+all.mammal.abundances <- all.mammal.abundances[,-30]
+ 
+  P_byplot <- copy(all.mammal.abundances)
+  P_byplot[,`:=`(richness = apply(.SD,1,(\(x) sum(x>0))),
+                 abundance = apply(.SD,1,sum),
+                 gma=apply(.SD,1,(\(x) exp( sum(log(x[x>0])) / sum(x>0) )))),
+           .SDcols = sci_names_list[-4]]
+
+```
+
+```{r load using function}
+
+P <- P_byplot[grepl("Planted Conifer Forests",Unit),][order(Cycle_number,Site)][,Site:=factor(Site)]
+```
+
+## Planted Conifer Forests - Richness by camera
+
+### Monitoring started in 2014 (5 monitoring cycles), Each site has only one plot that is far from Settlements. 
+### There are 15 sites total, each site has 5 sampling points 
+
+Let's first validate the data:
+
+```{r data validation}
+#include rare species in analysis
+P.anal <- copy(P) # set a fixed variable name for analysis, if want to switch between data WITH rare #species and data WITHOUT rare species then only change once here
+#Validate factors and levels
+P.anal$Settlements <- as.factor(P.anal$Settlements)
+print("Settlements has 1 level")
+print(levels(P.anal$Settlements))
+P.anal$Subunit <- as.factor(P.anal$Subunit)
+print("Subunit has 3 levels")
+print(levels(P.anal$Subunit))
+P.anal$Site <- as.factor(P.anal$Site)
+print("Site has 15 levels")
+print(levels(P.anal$Site))
+P.anal$Transect <- as.factor(P.anal$Transect)
+print("Transect has 15 levels")
+print(levels(P.anal$Transect))
+P.anal$Transect_with_date <- as.factor(P.anal$Transect_with_date)
+print("Transect with date has 75 levels")
+print(levels(P.anal$Transect_with_date))
+
+```
+
+```{r richness data explore, fig.height = 8, fig.width = 10}
+print("RICHNESS WITH RARE SPECIES")
+plot_alpha_diversity(P, x_val = "Subunit", y_val = "richness", ylab_val = "richness", xlab_val = "Subunit", fill_val = "Subunit")
+
+col_names <- c("Cycle_number",  "Deployment.id_new",	"Unit",	"Subunit",	"Site", "Settlements",	"Distance_rescaled", "Lon",	"Lat", "year", "rescaled_Time.Diff", "sinus_Monitoring.Time.Diff", "cosinus_Monitoring.Time.Diff", "Transect", "Transect_with_date")
+
+my_cols <- c("blue", "darkgreen", "red")
+dotchart(P.anal$richness, ylab = "Subunit",
+         groups = P.anal$Subunit, gcolor = my_cols,
+         color = my_cols[P.anal$Subunit],
+         cex = 0.9,  pch = 1, xlab = "richness")
+```
+
+Explore abundances:
+
+```{r}
+abu_by_spp.ConiferForests <- all.mammal.abundances[grepl("Planted Conifer Forests",Unit),]
+spp <- abu_by_spp.ConiferForests[,c(27:39)]
+
+# filter out species with zero counts 
+print(colSums(spp))
+spp <- spp[,.SD,.SDcols = colSums(spp)>0]
+spp <- mvabund(spp)
+
+try(plot(spp ~ P.anal$Subunit, overall.main="raw abundances", transformation = "no"))
+```
+
+Sus scrofa only:
+
+```{r abundance data explore, fig.height = 8, fig.width = 10}
+#Sus scorfa abundance across subunit, sites and projectid
+my_cols <- c("blue", "darkgreen", "red")
+dotchart(P.anal$`Sus scrofa`, ylab = "Subunit",
+         groups = P.anal$Subunit, gcolor = my_cols,
+         color = my_cols[P.anal$Subunit],
+         cex = 0.9,  pch = 1, xlab = "Abundance")
+
+P.anal$Project.ID <- as.factor(P.anal$Project.ID)
+my_cols <- c("blue", "darkgreen", "red", "purple", "darkorange")
+dotchart(P.anal$`Sus scrofa`, ylab = "Project.ID",
+         groups = P.anal$Project.ID, gcolor = my_cols,
+         color = my_cols[P.anal$Project.ID],
+         cex = 0.9,  pch = 1, xlab = "Abundance")
+
+fun_color_range <- colorRampPalette(c("#1b98e0", "red"))
+my_cols <- fun_color_range(15)    
+dotchart(P.anal$`Sus scrofa`, ylab = "Site",
+         groups = P.anal$Site, gcolor = my_cols,
+         color = my_cols[P.anal$Site],
+         cex = 0.9,  pch = 1, xlab = "Abundance")
+```
+
+Fix outlier observation of 186 wild boar, by setting the count to be equal to the highest count observed.
+
+```{r fix sus scrofa outlier}
+maxI <- which(spp[,"Sus.scrofa"]>100)
+spp[maxI,"Sus.scrofa"] <- max(spp[-maxI,"Sus.scrofa"])
+P.anal[maxI,`Sus scrofa`:=max(spp[-maxI,"Sus.scrofa"])]
+abu_by_spp.ConiferForests[maxI,`Sus scrofa`:=max(spp[-maxI,"Sus.scrofa"])]
+try(plot(spp ~ P.anal$Subunit, overall.main="raw abundances", transformation = "no"))
+```
+
+Fix outlier observations of canis lupus, gazella gazella and hystrix indica, by setting the count to be equal to the highest count observed for the species.
+
+```{r fix outliers}
+maxI <- which(spp[,"Canis.lupus"]>40)
+spp[maxI,"Canis.lupus"] <- max(spp[-maxI,"Canis.lupus"])
+P.anal[maxI,`Canis lupus`:=max(spp[-maxI,"Canis.lupus"])]
+abu_by_spp.ConiferForests[maxI,`Canis lupus`:=max(spp[-maxI,"Canis.lupus"])]
+
+maxI <- which(spp[,"Gazella.gazella"]>35)
+spp[maxI,"Gazella.gazella"] <- max(spp[-maxI,"Gazella.gazella"])
+P.anal[maxI,`Gazella gazella`:=max(spp[-maxI,"Gazella.gazella"])]
+abu_by_spp.ConiferForests[maxI,`Gazella gazella`:=max(spp[-maxI,"Gazella.gazella"])]
+
+maxI <- which(spp[,"Hystrix.indica"]>30)
+spp[maxI,"Hystrix.indica"] <- max(spp[-maxI,"Hystrix.indica"])
+P.anal[maxI,`Hystrix indica`:=max(spp[-maxI,"Hystrix.indica"])]
+abu_by_spp.ConiferForests[maxI,`Hystrix indica`:=max(spp[-maxI,"Hystrix.indica"])]
+
+try(plot(spp ~ P.anal$Subunit, overall.main="raw abundances", transformation = "no"))
+```
+
+```{r data explore, fig.height = 8, fig.width = 10}
+kable(summary(P.anal[,.(richness, abundance, Subunit, rescaled_Time.Diff, cosinus_Monitoring.Time.Diff, sinus_Monitoring.Time.Diff, Site, Transect, Transect_with_date, Distance_rescaled)]))
+pairs(P.anal[,lapply(X = .SD,FUN = as.numeric),.SDcols=c("Subunit","sinus_Monitoring.Time.Diff", "cosinus_Monitoring.Time.Diff", "rescaled_Time.Diff","Site","Transect", "Transect_with_date", "Distance_rescaled")])
+kable(cor(P.anal[,lapply(X = .SD,FUN = as.numeric),.SDcols=c("Subunit","sinus_Monitoring.Time.Diff", "cosinus_Monitoring.Time.Diff", "rescaled_Time.Diff","Site","Transect", "Transect_with_date", "Distance_rescaled")]))
+meanvar.plot(spp, xlab = "mean abundance of a given species across sites", ylab = "variance of the abundance of a given species across sites")
+```
+
+
+#### Community analysis using package MVabund
+
+Table of abundances per species by camera ID
+
+```{r print table with rare species}
+abundance_and_cameras <- as.data.table(abu_by_spp.ConiferForests[,c(5,27:39)])
+dim(abundance_and_cameras)
+canisau <- abundance_and_cameras[,2] > 0
+sum(canisau)
+canislup <- abundance_and_cameras[,3] > 0
+sum(canislup)
+capra <- abundance_and_cameras[,4] > 0
+sum(capra)
+Equus <- abundance_and_cameras[,5] > 0
+sum(Equus)
+Gazellador <- abundance_and_cameras[,6] > 0
+sum(Gazellador)
+Gazellagaz <- abundance_and_cameras[,7] > 0
+sum(Gazellagaz)
+Hyaena <- abundance_and_cameras[,8] > 0
+sum(Hyaena)
+Hystrix <- abundance_and_cameras[,9] > 0
+sum(Hystrix)
+Lepus <- abundance_and_cameras[,10] > 0
+sum(Lepus)
+Meles <- abundance_and_cameras[,11] > 0
+sum(Meles)
+Oryx <- abundance_and_cameras[,12] > 0
+sum(Oryx)
+Sus <- abundance_and_cameras[,13] > 0
+sum(Sus)
+Vulpus <- abundance_and_cameras[,14] > 0
+sum(Vulpus)
+```
+
+298 cameras. Species with a minimum of 10 cameras - Canis aureus, Canis lupus, Gazella gazella, Hyaena hyaena, Hystrix indica, Lepus capensis, Meles meles, Sus scorfa and Vulpus vulpus
+
+```{r filtering out rare species}
+
+spp_no_rare <- abu_by_spp.ConiferForests[,27:39]
+print(colSums(spp_no_rare))
+# filter out species with less than 20 individuals (rare species)
+spp_no_rare <- spp_no_rare[,.SD,.SDcols = colSums(spp_no_rare)>=20]
+#spp_no_rare <- spp_no_rare[,c(-2,-6)]
+spp_no_rare <- mvabund(spp_no_rare)
+print(colSums(spp_no_rare))
+
+```
+
+
+Species with 20 individuals or more - Canis aureus, Canis lupus, Gazella gazella, Hyaena hyaena, Hystrix indica, Lepus capensis, Meles meles, Sus scorfa and Vulpus vulpus
+
+Left with 9 species
+
+```{r community analysis MVabund, fig.height=8, fig.width=10}
+
+env_data <- abu_by_spp.ConiferForests[,..col_names]
+
+mva_m0.po <- manyglm(formula = spp_no_rare ~ rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Subunit, family = "poisson", data = env_data)
+
+mva_m0.nb <- manyglm(formula = spp_no_rare ~ rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Subunit, family = "negative.binomial", data = env_data)
+
+aic_dt <- data.table(nb = mva_m0.nb$aic, po=mva_m0.po$aic)
+colMeans(aic_dt)
+print("POISSON")
+plot(mva_m0.po, which=1:3)
+print("NEGATIVE BINOMIAL")
+plot(mva_m0.nb, which=1:3)
+```
+
+prefer negative binomial because standardized residuals are smaller.
+
+```{r community analysis MVabund 2}
+# mva_m0 <- mva_m0.po
+# mva_m1 <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + dunes*rescaled_Time.Diff + Distance_rescaled:dunes + cos_td_rad + sin_td_rad + site, family = "poisson", data = env_data)
+# aic_dt$po1 <- mva_m1$aic
+mva_m0 <- mva_m0.nb
+mva_m1 <- manyglm(formula = spp_no_rare ~ rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff, data = env_data)
+aic_dt$nb1 <- mva_m1$aic
+colMeans(aic_dt)
+
+mva_m2 <- manyglm(formula = spp_no_rare ~ rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Transect, data = env_data)
+aic_dt$nb2 <- mva_m2$aic
+colMeans(aic_dt)
+
+mva_m3 <- manyglm(formula = spp_no_rare ~ rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Site, data = env_data)
+aic_dt$nb3 <- mva_m2$aic
+colMeans(aic_dt)
+
+mva_m4 <- manyglm(formula = spp_no_rare ~ rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Subunit, data = env_data)
+aic_dt$nb4 <- mva_m2$aic
+colMeans(aic_dt)
+
+mva_m4 <- manyglm(formula = spp_no_rare ~ rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Subunit + Site, data = env_data)
+aic_dt$nb5 <- mva_m2$aic
+colMeans(aic_dt)
+
+```
+
+Transect, Site and Subunit improve the model. Will proceed with Subunit:
+
+
+## Many GLM with Sub-unit - no interactions
+
+```{r community analysis (site) MVabund model selection}
+mva_m0.nb <- manyglm(formula = spp_no_rare ~ rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Subunit, family = "negative.binomial", data = env_data)
+drop1(mva_m0.nb)
+
+```
+
+Drop sine
+
+```{r community analysis (site) MVabund model selection 2}
+# mva_m2 <- manyglm(formula = spp_no_rare ~ Distance_rescaled + dunes*rescaled_Time.Diff + Distance_rescaled:dunes + cos_td_rad + sin_td_rad, family = "poisson", data = env_data)
+mva_m2 <- manyglm(formula = spp_no_rare ~ rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + Subunit, family = "negative.binomial", data = env_data)
+drop1(mva_m2)
+```
+
+ Final model includes Sub-unit, cosin and time
+
+```{r community analysis (site) MVabund model validation, fig.height=8, fig.width=10}
+plot(mva_m2, which=1:3)
+```
+
+```{r community analysis (site) MVabund model interpretation}
+
+# summ_m2 <- summary(mva_m2)
+# saveRDS(summ_m2, "output/summ_model_forest_subunit1.RDS")
+summ_m2 <- readRDS("output/summ_model_forest_subunit1.RDS")
+# anov_m2.uni <- anova(mva_m2, p.uni = "adjusted")
+# saveRDS(anov_m2.uni, "output/anova_forest_subunit1.RDS")
+anov_m2.uni <- readRDS("output/anova_forest_subunit1.RDS")
+print(summ_m2)
+print(anov_m2.uni)
+
+```
+
+**Multivariate test shows that Sub-unit, cosin time of sampling and time affect species composition**
+**However time variable is not significant for any of the species. Therefore re-run without time variable.**
+
+```{r}
+mva_m2 <- manyglm(formula = spp_no_rare ~ cosinus_Monitoring.Time.Diff + Subunit, family = "negative.binomial", data = env_data)
+drop1(mva_m2)
+```
+```{r}
+plot(mva_m2, which=1:3)
+```
+```{r}
+# summ_m2 <- summary(mva_m2)
+# saveRDS(summ_m2, "output/summ_model_forest_subunit2.RDS")
+summ_m2 <- readRDS("output/summ_model_forest_subunit2.RDS")
+# anov_m2.uni <- anova(mva_m2, p.uni = "adjusted")
+# saveRDS(anov_m2.uni, "output/anova_forest_subunit2.RDS")
+anov_m2.uni <- readRDS("output/anova_forest_subunit2.RDS")
+print(summ_m2)
+print(anov_m2.uni)
+```
+
+**Final model includes Sub-unit and cosin time of sampling**
+
+```{r community analysis (site) MVabund model interpretation - plot coefficients, error=TRUE}
+coefp <- merge(data.table(t(coef(mva_m2)/log(2)),keep.rownames=TRUE), data.table(t(anov_m2.uni$uni.p), keep.rownames = TRUE), by = "rn") # coefficients are exponentiated because the link function used for poisson is log -> above 1 is positive and below 1 is negative
+# add total species abundance
+coefp <- merge(coefp,as.data.table(colSums(spp_no_rare),keep.rownames = TRUE), by.x = "rn", by.y = "V1")
+
+colnames(coefp) <- c("SciName","Intercept.coef","Cosin_time.coef","Galilee.coef","Judea.coef","Intercept.p","Cosin_time.p","Subunit.p","Species_abundance")
+
+write.csv(coefp, "coefficients_Subunit_Planted_Conifer_Forest.csv")
+
+```
+
+
+### Canis lupus
+remove Carmel observations because they are all zeros.
+
+```{r community analysis MVabund model interpretation - single species models, error=TRUE}
+Canis.lupus <- spp_no_rare[env_data$Subunit!="Carmel","Canis.lupus"]
+glm.Canis.lupus <- glm.nb(formula = Canis.lupus ~ cosinus_Monitoring.Time.Diff  + Subunit, data = env_data[Subunit!="Carmel"])
+summary(glm.Canis.lupus)
+
+plot_model_effect(P.anal = env_data[Subunit!="Carmel"][, Canis.lupus:=as.numeric(Canis.lupus)], m = glm.Canis.lupus, eff2plot = "Subunit", plot_points=TRUE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/conifer_forest/", y_cutoff = 4)
+```
+
+Compute predicted average difference in C. lupus abundance between Judea and Galilee based on model:
+
+```{r}
+I_td_min <- which.min(P.anal$rescaled_Time.Diff)
+I_td_max <- which.max(P.anal$rescaled_Time.Diff)
+abund_galilee_judea_canlup <- predict(object = glm.Canis.lupus,
+                              newdata = list(rescaled_Time.Diff=rep(mean(c(P.anal$rescaled_Time.Diff[I_td_min],
+                                                                           P.anal$rescaled_Time.Diff[I_td_max])),2),
+                                             Subunit = c("Galilee","Judea"),
+                                             cosinus_Monitoring.Time.Diff = rep(cos(mean(P.anal$Monitoring.Time.Diff_numeric)),2)),
+                              type = "response")
+print(paste("C. lupus abundance in Galilee is higher than Judea by",
+      abs(diff(abund_galilee_judea_canlup)/abund_galilee_judea_canlup[2]*100),"%"))
+```
+
+### Gazella gazella
+
+```{r}
+Gazella.gazella <- spp_no_rare[,"Gazella.gazella"]
+glm.Gazella.gazella <- glm.nb(formula = Gazella.gazella ~ cosinus_Monitoring.Time.Diff  + Subunit, data = env_data)
+coef(glm.Gazella.gazella)
+coef(mva_m2)
+print(sum(Gazella.gazella))
+
+plot_model_effect(P.anal = env_data, m = glm.Gazella.gazella, eff2plot = "Subunit", plot_points=TRUE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/conifer_forest/")
+
+#Compare spatial trends among subunits
+pairwise_subunit <- emmeans(object = glm.Gazella.gazella, ~ Subunit)
+print(pairwise_subunit)
+test_results_subunit <- test(pairs(pairwise_subunit, by=NULL), adjust="fdr")
+print(test_results_subunit)
+```
+
+Compute predicted average difference in G. gazella abundance among all subunits based on model:
+
+```{r}
+abund_gazgaz <- predict(object = glm.Gazella.gazella,
+                              newdata = list(rescaled_Time.Diff=rep(mean(c(P.anal$rescaled_Time.Diff[I_td_min],
+                                                                           P.anal$rescaled_Time.Diff[I_td_max])),3),
+                                             Subunit = c("Judea","Galilee","Carmel"),
+                                             cosinus_Monitoring.Time.Diff = rep(cos(mean(P.anal$Monitoring.Time.Diff_numeric)),3)),
+                              type = "response")
+print(paste("G. gazella abundance in Judea is higher than Carmel by",
+      abs(diff(abund_gazgaz[c(1,3)])/abund_gazgaz[3]*100),"%"))
+
+print(paste("G. gazella abundance in Judea is higher than Galilee by",
+      abs(diff(abund_gazgaz[c(1,2)])/abund_gazgaz[2]*100),"%"))
+
+print(paste("G. gazella abundance in Galilee is higher than Carmel by",
+      abs(diff(abund_gazgaz[c(2,3)])/abund_gazgaz[3]*100),"%"))
+```
+
+### Hystrix indica
+
+```{r}
+Hystrix.indica <- spp_no_rare[,"Hystrix.indica"]
+glm.Hystrix.indica <- glm.nb(formula = Hystrix.indica ~ cosinus_Monitoring.Time.Diff  + Subunit, data = env_data)
+coef(glm.Hystrix.indica)
+coef(mva_m2)
+
+plot_model_effect(P.anal = env_data, m = glm.Hystrix.indica, eff2plot = "Subunit", plot_points=TRUE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/conifer_forest/")
+
+#Compare spatial trends among subunits
+pairwise_subunit <- emmeans(object = glm.Hystrix.indica, ~ Subunit)
+print(pairwise_subunit)
+test_results_subunit <- test(pairs(pairwise_subunit, by=NULL), adjust="fdr")
+print(test_results_subunit)
+```
+
+Compute predicted average difference in H. indica abundance among all subunits based on model:
+
+```{r}
+abund_hysind <- predict(object = glm.Hystrix.indica,
+                              newdata = list(rescaled_Time.Diff=rep(mean(c(P.anal$rescaled_Time.Diff[I_td_min],
+                                                                           P.anal$rescaled_Time.Diff[I_td_max])),3),
+                                             Subunit = c("Judea","Carmel","Galilee"),
+                                             cosinus_Monitoring.Time.Diff = rep(cos(mean(P.anal$Monitoring.Time.Diff_numeric)),3)),
+                              type = "response")
+print(paste("H. indica abundance in Judea is higher than Carmel by",
+      abs(diff(abund_hysind[c(1,2)])/abund_hysind[2]*100),"%"))
+
+print(paste("H. indica abundance in Judea is higher than Galilee by",
+      abs(diff(abund_hysind[c(1,3)])/abund_hysind[3]*100),"%"))
+
+print(paste("H. indica abundance in Carmel is higher than Galilee by",
+      abs(diff(abund_hysind[c(2,3)])/abund_hysind[3]*100),"%"))
+```
+
+### Lepus cepensis
+remove Galilee observations because they are all zeros.
+
+```{r}
+Lepus.capensis <- spp_no_rare[env_data$Subunit!="Galilee","Lepus.capensis"]
+glm.Lepus.capensis <- glm.nb(formula = Lepus.capensis ~ cosinus_Monitoring.Time.Diff  + Subunit, data = env_data[Subunit!="Galilee"])
+summary(glm.Lepus.capensis)
+```
+
+After removing Galilee, subunit is not a significant factor on Lepus capensis abundance.
+
+### Sus scrofa
+although significant, exclude model because appears again later in model with subunit*time interaction.
+
+```{r, eval=FALSE}
+Sus.scrofa <- spp_no_rare[,"Sus.scrofa"]
+glm.Sus.scrofa <- glm.nb(formula = Sus.scrofa ~ cosinus_Monitoring.Time.Diff  + Subunit, data = env_data)
+coef(glm.Sus.scrofa)
+coef(mva_m2)
+
+plot_model_effect(P.anal = env_data, m = glm.Sus.scrofa, eff2plot = "Subunit", plot_points=TRUE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/conifer_forest/")
+
+#Compare spatial trends among subunits
+pairwise_subunit <- emmeans(object = glm.Sus.scrofa, ~ Subunit)
+print(pairwise_subunit)
+test_results_subunit <- test(pairs(pairwise_subunit, by=NULL), adjust="fdr")
+print(test_results_subunit)
+
+```
+
+
+## Many GLM with interaction between subunit and time
+
+```{r community analysis (Subunit) MVabund model selection}
+
+mva_m0.nb <- manyglm(formula = spp_no_rare ~ Subunit * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff, family = "negative.binomial", data = env_data)
+drop1(mva_m0.nb)
+
+```
+
+drop sine
+
+```{r}
+mva_m0.nb <- manyglm(formula = spp_no_rare ~ Subunit * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff, family = "negative.binomial", data = env_data)
+drop1(mva_m0.nb)
+```
+
+Final model includes cosin time, and the interaction between subunit and time 
+
+```{r community analysis (Subunit) MVabund model interpretation}
+# summ_m2 <- summary(mva_m0.nb)
+# saveRDS(summ_m2, "output/summ_model_forest_interact.RDS")
+summ_m2 <- readRDS("output/summ_model_forest_interact.RDS")
+print(summ_m2)
+# anov_m2.uni <- anova(mva_m0.nb, p.uni = "adjusted")
+# saveRDS(anov_m2.uni, "output/anova_forest_interact.RDS")
+anov_m2.uni <- readRDS("output/anova_forest_interact.RDS")
+print(anov_m2.uni)
+```
+
+**Multivariate test shows that subunit x time and cosin time affect species composition**
+
+```{r community analysis (subunit) MVabund model interpretation - plot coefficients, error=TRUE}
+coefp <- merge(data.table(t(coef(mva_m0.nb)/log(2)),keep.rownames=TRUE), data.table(t(anov_m2.uni$uni.p), keep.rownames = TRUE), by = "rn") # coefficients are exponentiated because the link function used for poisson is log -> above 1 is positive and below 1 is negative
+# add total species abundance
+coefp <- merge(coefp,as.data.table(colSums(spp_no_rare),keep.rownames = TRUE), by.x = "rn", by.y = "V1")
+
+colnames(coefp) <- c("SciName","Intercept.coef","Galilee.coef","Judea.coef","time_diff","Cosin_time.coef","Galilee_time.coef","Judea_time.coef","Intercept.p","Subunit.p","Time_diff.p","Cosin.p","Subunit_time.p","Species_abundance")
+
+write.csv(coefp, "coefficients_Subunit_interaction_Planted_Conifer_Forest.csv")
+```
+
+
+### Sus scrofa
+
+```{r, error=TRUE}
+Sus.scrofa <- spp_no_rare[,"Sus.scrofa"]
+glm.Sus.scrofa <- glm.nb(Sus.scrofa ~ Subunit * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff, data = env_data, maxit = 999)
+coef(glm.Sus.scrofa)
+coef(mva_m0.nb)
+
+interact_plot(glm.Sus.scrofa, pred = rescaled_Time.Diff, modx = Subunit, modx.values = NULL, partial.residuals = F, jitter = c(0.2), point.size = 3, rug = F, point.shape = F, interval = T, colors = "Dark2")
+
+plot_model_interaction(P.anal = env_data, m = glm.Sus.scrofa, eff2plot = "rescaled_Time.Diff", modvar2plot = "Subunit", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/conifer_forest/", legend_position = "bottom")
+```
+
+Test whether temporal trend is different from zero
+
+```{r, error=TRUE}
+#Test whether temporal trend is different from zero
+mm_rescaled_subunit_time <- emtrends(glm.Sus.scrofa, specs = "Subunit", var = "rescaled_Time.Diff", type = "response")
+print(mm_rescaled_subunit_time)
+test_subunit_time <- test(mm_rescaled_subunit_time, null = 0, adjust="fdr")
+print(test_subunit_time)
+```
+
+Compute predicted decrease in S. scrofa across monitoring time span based on model:
+
+```{r increase in S. scrofa in Judea}
+print(paste("start date:", P.anal$Start.date[I_td_min]))
+print(paste("end date:", P.anal$Start.date[I_td_max]))
+
+abund_start_end <- predict(object = glm.Sus.scrofa, newdata = list(rescaled_Time.Diff=c(P.anal$rescaled_Time.Diff[I_td_min], P.anal$rescaled_Time.Diff[I_td_max]), Subunit = c("Judea","Judea"), cosinus_Monitoring.Time.Diff = rep(cos(mean(P.anal$Monitoring.Time.Diff_numeric)),2)), type = "response")
+
+print(paste("Increase from",abund_start_end[1],"to", abund_start_end[2], "which is",
+            diff(abund_start_end)/abund_start_end[1]*100,"%"))
+```
+
+Test whether spatial differences in subunit are different from zero
+
+```{r, error=TRUE}
+#Test whether spatial differences in subunit are different from zero
+EMM <- emmeans(object = glm.Sus.scrofa, ~Subunit*rescaled_Time.Diff)
+test_results_subunit <- test(pairs(EMM, by="rescaled_Time.Diff"), by=NULL, adjust="fdr")
+print(test_results_subunit)
+```
+
+Compute predicted average difference in S. scrofa abundance between Judea-Carmel and Judea-Galilee based on model:
+
+```{r}
+
+abund_susscr <- predict(object = glm.Sus.scrofa,
+                              newdata = list(rescaled_Time.Diff=rep(mean(c(P.anal$rescaled_Time.Diff[I_td_min],
+                                                                           P.anal$rescaled_Time.Diff[I_td_max])),3),
+                                             Subunit = c("Judea","Carmel","Galilee"),
+                                             cosinus_Monitoring.Time.Diff = rep(cos(mean(P.anal$Monitoring.Time.Diff_numeric)),3)),
+                              type = "response")
+print(paste("S. scrofa abundance in Carmel is higher than Judea by",
+      abs(diff(abund_susscr[c(1,2)])/abund_susscr[1]*100),"%"))
+
+print(paste("S. scrofa abundance in Galilee is higher than Judea by",
+      abs(diff(abund_susscr[c(1,3)])/abund_susscr[1]*100),"%"))
+```
+
+### Canis aureus
+
+```{r, error=TRUE}
+Canis.aureus <- spp_no_rare[,"Canis.aureus"]
+glm.Canis.aureus <- glm.nb(Canis.aureus ~ Subunit * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff, data = env_data, maxit = 999)
+coef(glm.Canis.aureus)
+coef(mva_m0.nb)
+
+# interact_plot(glm.Canis.aureus, pred = rescaled_Time.Diff, modx = Subunit, modx.values = NULL, partial.residuals = F, jitter = c(0.2), point.size = 3, rug = F, point.shape = F, interval = T, colors = "Dark2")
+
+plot_model_interaction(P.anal = env_data, m = glm.Canis.aureus, eff2plot = "rescaled_Time.Diff", modvar2plot = "Subunit", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/conifer_forest/", legend_position = "bottom")
+```
+
+Test whether temporal trend is different from zero
+
+```{r, error=TRUE}
+#Test whether temporal trend is different from zero
+print("Canis aureus")
+mm_rescaled_subunit_time <- emtrends(glm.Canis.aureus, specs = "Subunit", var = "rescaled_Time.Diff", type = "response")
+print(mm_rescaled_subunit_time)
+test_subunit_time <- test(mm_rescaled_subunit_time, null = 0, adjust="fdr")
+print(test_subunit_time)
+```
+
+Compute predicted decrease in C. aureus across monitoring time span based on model:
+
+```{r decrease in C. aureus in Carmel}
+print(paste("start date:", P.anal$Start.date[I_td_min]))
+print(paste("end date:", P.anal$Start.date[I_td_max]))
+
+abund_start_end <- predict(object = glm.Canis.aureus, newdata = list(rescaled_Time.Diff=c(P.anal$rescaled_Time.Diff[I_td_min], P.anal$rescaled_Time.Diff[I_td_max]), Subunit = c("Carmel","Carmel"), cosinus_Monitoring.Time.Diff = rep(cos(mean(P.anal$Monitoring.Time.Diff_numeric)),2)), type = "response")
+
+print(paste("Decrease from",abund_start_end[1],"to", abund_start_end[2], "which is",
+            diff(abund_start_end)/abund_start_end[1]*100,"%"))
+```
+
+
+Test whether spatial differences in subunit are different from zero
+
+```{r, error=TRUE}
+#Test whether spatial differences in subunit are different from zero
+EMM <- emmeans(object = glm.Canis.aureus, ~Subunit*rescaled_Time.Diff)
+test_results_subunit <- test(pairs(EMM, by="rescaled_Time.Diff"), by=NULL, adjust="fdr")
+print(test_results_subunit)
+```
+Compute predicted average difference in C. aureus abundance between Carmel and Judea based on model:
+
+```{r}
+
+abund_carmel_judea_canaur <- predict(object = glm.Canis.aureus,
+                              newdata = list(rescaled_Time.Diff=rep(mean(c(P.anal$rescaled_Time.Diff[I_td_min],
+                                                                           P.anal$rescaled_Time.Diff[I_td_max])),2),
+                                             Subunit = c("Carmel","Judea"),
+                                             cosinus_Monitoring.Time.Diff = rep(cos(mean(P.anal$Monitoring.Time.Diff_numeric)),2)),
+                              type = "response")
+print(paste("C. aureus abundance in Carmel is higher than Judea by",
+      abs(diff(abund_carmel_judea_canaur)/abund_carmel_judea_canaur[2]*100),"%"))
+```
+
+n = 551 (total number of cameras)
+
+total abundance = 5613 (9 species), total abundance without rare species is the same
+
+### Session information
+
+```{r}
+session_info()
+```
+
