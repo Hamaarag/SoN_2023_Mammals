@@ -1,95 +1,163 @@
 {
   "R": {
-    "version": "4.2.2",
-    "minor": "4.2",
-    "major": "4",
-    "platform": "x86_64-pc-linux-gnu"
+    "Version": "4.3.2",
+    "Repositories": [
+      {
+        "Name": "CRAN",
+        "URL": "https://cloud.r-project.org"
+      }
+    ]
   },
   "Packages": {
-    "ggplot2": {
-      "Package": "ggplot2",
-      "Version": "3.5.0",
-      "Source": "cran"
+    "MASS": {
+      "Package": "MASS",
+      "Version": "7.3-60.0.1",
+      "Source": "CRAN"
     },
-    "glmmTMB": {
-      "Package": "glmmTMB",
-      "Version": "1.1.8",
-      "Source": "cran"
+    "Matrix": {
+      "Package": "Matrix",
+      "Version": "1.6-5",
+      "Source": "CRAN"
     },
-    "dplyr": {
-      "Package": "dplyr",
-      "Version": "1.1.1",
-      "Source": "cran"
+    "boot": {
+      "Package": "boot",
+      "Version": "1.3-30",
+      "Source": "CRAN"
     },
-    "pkgbuild": {
-      "Package": "pkgbuild",
-      "Version": "1.3.1",
-      "Source": "cran"
+    "class": {
+      "Package": "class",
+      "Version": "7.3-22",
+      "Source": "CRAN"
     },
-    "Rcpp": {
-      "Package": "Rcpp",
-      "Version": "1.0.8.3",
-      "Source": "cran"
+    "cluster": {
+      "Package": "cluster",
+      "Version": "2.1.6",
+      "Source": "CRAN"
     },
-    "tidyr": {
-      "Package": "tidyr",
-      "Version": "1.2.0",
-      "Source": "cran"
+    "codetools": {
+      "Package": "codetools",
+      "Version": "0.2-19",
+      "Source": "CRAN"
     },
-    "forcats": {
-      "Package": "forcats",
-      "Version": "0.5.1",
-      "Source": "cran"
+    "foreign": {
+      "Package": "foreign",
+      "Version": "0.8-86",
+      "Source": "CRAN"
     },
-    "stringr": {
-      "Package": "stringr",
-      "Version": "1.5.0",
-      "Source": "cran"
+    "kernlab": {
+      "Package": "kernlab",
+      "Version": "0.9-32",
+      "Source": "CRAN"
     },
-    "tibble": {
-      "Package": "tibble",
-      "Version": "3.1.8",
-      "Source": "cran"
+    "lattice": {
+      "Package": "lattice",
+      "Version": "0.22-5",
+      "Source": "CRAN"
     },
-    "lubridate": {
-      "Package": "lubridate",
-      "Version": "1.8.0",
-      "Source": "cran"
+    "mgcv": {
+      "Package": "mgcv",
+      "Version": "1.9-1",
+      "Source": "CRAN"
     },
-    "purrr": {
-      "Package": "purrr",
-      "Version": "0.3.5",
-      "Source": "cran"
+    "nlme": {
+      "Package": "nlme",
+      "Version": "3.1-164",
+      "Source": "CRAN"
     },
-    "readr": {
-      "Package": "readr",
-      "Version": "2.1.2",
-      "Source": "cran"
+    "nnet": {
+      "Package": "nnet",
+      "Version": "7.3-19",
+      "Source": "CRAN"
     },
-    "stringi": {
-      "Package": "stringi",
-      "Version": "1.7.6",
-      "Source": "cran"
+    "rpart": {
+      "Package": "rpart",
+      "Version": "4.1.23",
+      "Source": "CRAN"
     },
-    "Rtsne": {
-      "Package": "Rtsne",
-      "Version": "0.16",
-      "Source": "cran"
+    "spatial": {
+      "Package": "spatial",
+      "Version": "7.3-17",
+      "Source": "CRAN"
     },
-    "corrplot": {
-      "Package": "corrplot",
-      "Version": "0.92",
-      "Source": "cran"
+    "survival": {
+      "Package": "survival",
+      "Version": "3.5-7",
+      "Source": "CRAN"
     },
-    "car": {
-      "Package": "car",
-      "Version": "3.1-0",
-      "Source": "cran"
+    "classInt": {
+      "Package": "classInt",
+      "Version": "0.4-10",
+      "Source": "CRAN"
     },
-    "lme4": {
-      "Package": "lme4",
-      "Version": "1.1-31",
-      "Source": "cran"
+    "e1071": {
+      "Package": "e1071",
+      "Version": "1.7-14",
+      "Source": "CRAN"
+    },
+    "sp": {
+      "Package": "sp",
+      "Version": "2.1-3",
+      "Source": "CRAN"
+    },
+    "rgeos": {
+      "Package": "rgeos",
+      "Version": "0.6-4",
+      "Source": "CRAN"
+    },
+    "maptools": {
+      "Package": "maptools",
+      "Version": "1.1-8",
+      "Source": "CRAN"
+    },
+    "spdep": {
+      "Package": "spdep",
+      "Version": "1.3-1",
+      "Source": "CRAN"
+    },
+    "sf": {
+      "Package": "sf",
+      "Version": "1.0-15",
+      "Source": "CRAN"
+    },
+    "spatstat.data": {
+      "Package": "spatstat.data",
+      "Version": "3.0-4",
+      "Source": "CRAN"
+    },
+    "spatstat.geom": {
+      "Package": "spatstat.geom",
+      "Version": "3.2-7",
+      "Source": "CRAN"
+    },
+    "spatstat.random": {
+      "Package": "spatstat.random",
+      "Version": "3.1-5",
+      "Source": "CRAN"
+    },
+    "spatstat.sparse": {
+      "Package": "spatstat.sparse",
+      "Version": "3.0-3",
+      "Source": "CRAN"
+    },
+    "spatstat.utils": {
+      "Package": "spatstat.utils",
+      "Version": "3.0-4",
+      "Source": "CRAN"
+    },
+    "spatstat.explore": {
+      "Package": "spatstat.explore",
+      "Version": "3.2-4",
+      "Source": "CRAN"
+    },
+    "spatstat.model": {
+      "Package": "spatstat.model",
+      "Version": "3.2-6",
+      "Source": "CRAN"
+    },
+    "spatstat": {
+      "Package": "spatstat",
+      "Version": "3.0-6",
+      "Source": "CRAN"
     }
   }
 }
