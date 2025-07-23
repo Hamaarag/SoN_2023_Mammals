@@ -1,0 +1,729 @@
+---
+title: "Mammal data - Negev Highlands"
+author: "Talia Gabay & Ron Chen"
+date: "`r Sys.Date()`"
+output: html_document
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#knitr::opts_chunk$set(dev = "cairo_pdf", dev.args=list(cairo_pdf = list(family='Arial')))
+
+
+#Load packages
+library(devtools)
+library(rlang)
+library(ggplot2)
+library(data.table)
+library(dplyr)
+library(mvabund)
+library(kableExtra)
+library(lme4)
+library(MASS)
+library(vegan)
+library(jtools)
+library(interactions)
+library(car)
+library(ecoCopula)
+library(chron)
+library(data.table)
+library(readxl)
+library(performance)
+library(emmeans)
+library(Cairo)
+
+#Load functions
+source("functions/plot_alpha_diversity_cycle_num.R")
+source("functions/plot_model_effect_mammals.R")
+source("functions/plot_interaction_mammals.R")
+source_url("https://raw.githubusercontent.com/ronchen1/ron_functions/d2d0bab4dc65f29e53d316ae4098d0469711905b/R/multiplot.R", sha1 = "eef55df1963ba201f57cf44513f566298756fd4f")
+
+```
+
+
+
+```{r load data, include=FALSE}
+# Abundance table - all data
+all.mammal.abundances <- read.csv("Data/mammals.abundance.matrix.TG.csv", header = TRUE, sep =",") %>% as.data.table()
+
+#Species names
+sci_names <- readxl::read_excel(path = 'Data/Scientific.names.mammals.xlsx') %>% as.data.table()
+#Make species list
+sci_names_list <- as.character(sort(unique(sci_names$SciName)))
+#Change species column names in abundance table 
+colnames(all.mammal.abundances)[27:40] <- sci_names_list 
+#colnames(all.mammal.abundances)[25:38] <- sci_names_list   
+   
+
+  P_byplot <- copy(all.mammal.abundances)
+  P_byplot[,`:=`(richness = apply(.SD,1,(\(x) sum(x>0))),
+                 abundance = apply(.SD,1,sum),
+                 gma=apply(.SD,1,(\(x) exp( sum(log(x[x>0])) / sum(x>0) )))),
+           .SDcols = sci_names_list]
+
+
+```
+
+```{r load using function}
+
+P <- P_byplot[grepl("Negev Highlands",Unit),][order(Cycle_number,Site)][,Site:=factor(Site)]
+```
+
+## Negev Highlands - Richness by camera
+
+Monitoring started in 2014 (5 monitoring cycles), Each site as two types of plots - near or far from Settlements. 
+There are 5 sites total - Bislach, Ezuz, Merhav Am, Sde Boker, Yeruham 
+Each has 5 sampling points except for Sde Boker(near) which is missing samples from the first year (2014)
+
+Let's first validate the data:
+
+```{r data validation}
+#include rare species in analysis
+P.anal <- copy(P) # set a fixed variable name for analysis, if want to switch between data WITH rare #species and data WITHOUT rare species then only change once here
+#Validate factors and levels
+P.anal$Settlements <- as.factor(P.anal$Settlements)
+print("Settlements has 2 levels")
+print(levels(P.anal$Settlements))
+
+P.anal$Site <- as.factor(P.anal$Site)
+print("Site has 5 levels")
+print(levels(P.anal$Site))
+P.anal$Transect <- as.factor(P.anal$Transect)
+print("Transect has 10 levels")
+print(levels(P.anal$Transect))
+P.anal$Transect_with_date <- as.factor(P.anal$Transect_with_date)
+print("Transect with date has 49 levels - Missing data for Sde Boker near in 2014")
+print(levels(P.anal$Transect_with_date))
+
+#distance.rescaled <- scale(all.mammal.abundances$Distance)
+#write.csv(distance.rescaled, file = "Distance_rescaled.csv")
+```
+
+```{r richness data explore, fig.height = 8, fig.width = 10}
+print("RICHNESS WITH RARE SPECIES")
+plot_alpha_diversity(P, x_val = "Settlements", y_val = "richness", ylab_val = "richness", xlab_val = "Settlements", fill_val = "Settlements")
+
+col_names <- c("Cycle_number",  "Deployment.id_new",	"Unit",	"Subunit",	"Site", "Settlements",	"Distance_rescaled","Lon",	"Lat", "year", "rescaled_Time.Diff", "sinus_Monitoring.Time.Diff", "cosinus_Monitoring.Time.Diff", "Transect", "Transect_with_date")
+
+abu_by_spp.NegevHighlands <- all.mammal.abundances[grepl("Negev Highlands",Unit),]
+spp <- abu_by_spp.NegevHighlands[,27:40]
+#spp <- abu_by_spp.NegevHighlands[,25:38]
+# filter out species with zero counts 
+print(colSums(spp))
+spp <- spp[,.SD,.SDcols = colSums(spp)>0]
+spp <- mvabund(spp)
+
+plot(spp ~ P.anal$Settlements, overall.main="raw abundances", transformation = "no")
+
+my_cols <- c("blue", "darkgreen")
+dotchart(P.anal$richness, ylab = "Settlements",
+         groups = P.anal$Settlements, gcolor = my_cols,
+         color = my_cols[P.anal$Settlements],
+         cex = 0.9,  pch = 1, xlab = "richness")
+
+
+my_cols <- c("blue", "darkgreen", "red", "orange", "purple")
+dotchart(P.anal$richness, ylab = "Site",
+         groups = P.anal$Site, gcolor = my_cols,
+         color = my_cols[P.anal$Site],
+         cex = 0.9,  pch = 1, xlab = "richness")
+
+kable(summary(P.anal[,.(richness, abundance, Distance_rescaled, rescaled_Time.Diff, cosinus_Monitoring.Time.Diff, sinus_Monitoring.Time.Diff, Site, Transect, Transect_with_date)]))
+pairs(P.anal[,lapply(X = .SD,FUN = as.numeric),.SDcols=c("Distance_rescaled","rescaled_Time.Diff","cosinus_Monitoring.Time.Diff","sinus_Monitoring.Time.Diff","Site","Transect","Transect_with_date")])
+kable(cor(P.anal[,lapply(X = .SD,FUN = as.numeric),.SDcols=c("Distance_rescaled","rescaled_Time.Diff","cosinus_Monitoring.Time.Diff","sinus_Monitoring.Time.Diff","Site","Transect","Transect_with_date")]))
+meanvar.plot(spp, xlab = "mean abundance of a given species across sites", ylab = "variance of the abundance of a given species across sites")
+```
+
+```{r model richness, warning=FALSE}
+
+mdl_r.poiss.int <- glm(data = P.anal, formula = richness ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Site + Transect_with_date, family = poisson)
+od <- mdl_r.poiss.int$deviance/mdl_r.poiss.int$df.residual
+print("Estimating overdispersion parameter phi: (Res. Dev.)/(n-p) where n=number of observations; p=number of parameters in the model.")
+print(paste0('od = ',od))
+```
+
+Overdispersion parameter is <1 (underdispersion) and therefore will use Poisson
+
+```{r model selection richness}
+m0 <- glm(data = P.anal, formula =  richness ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff, family = poisson)
+
+me0transectwithdate <- glmer(data = P.anal, formula =   richness ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff +  (1|Transect_with_date), family = poisson, verbose = 1)
+
+me0transect <- glmer(data = P.anal, formula =   richness ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff +  (1|Transect), family = poisson, verbose = 1)
+
+me0site <- glmer(data = P.anal, formula =   richness ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff +  (1|Site), family = poisson, verbose = 1)
+
+```
+
+All GLMERs result in singular fit, will use regular GLM:
+
+```{r model selection richness 2}
+m1 <- step(m0)
+```
+
+```{r model selection richness 3}
+# m1 <- glmer(data = P.anal, formula = richness ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + (1|Transect_with_date), family = poisson)
+# drop1(m1)
+```
+
+Final model includes time difference
+
+```{r model interpretation richness}
+summ(m1, exp = TRUE, digits=3)
+effect_plot(model = m1, data=P.anal, pred = rescaled_Time.Diff, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1", main.title = "Temporal effect (points are partial residuals)")
+#m_coef <- coef(m2)
+#P.anal$Cycle_number <- as.numeric(P.anal$Cycle_number)
+#plot(P.anal$Cycle_number,
+ #    exp(m_coef["rescaled_Time.Diff"]*P.anal$rescaled_Time.Diff),
+ #xlab = "Cycle number", ylab = "contribution to richness")
+
+```
+
+Time difference significantly affects species richness 
+
+#### community analysis using package MVabund
+
+Table of abundances per species by camera ID
+
+```{r print table with rare species}
+abundance_and_cameras <- as.data.table(abu_by_spp.NegevHighlands[,c(5,27:40)])
+dim(abundance_and_cameras)
+canisau <- abundance_and_cameras[,2] > 0
+sum(canisau)
+canislup <- abundance_and_cameras[,3] > 0
+sum(canislup)
+capra <- abundance_and_cameras[,4] > 0
+sum(capra)
+Doma <- abundance_and_cameras[,5] > 0
+sum(Doma)
+Equus <- abundance_and_cameras[,6] > 0
+sum(Equus)
+Gazellador <- abundance_and_cameras[,7] > 0
+sum(Gazellador)
+Gazellagaz <- abundance_and_cameras[,8] > 0
+sum(Gazellagaz)
+Hyaena <- abundance_and_cameras[,9] > 0
+sum(Hyaena)
+Hystrix <- abundance_and_cameras[,10] > 0
+sum(Hystrix)
+Lepus <- abundance_and_cameras[,11] > 0
+sum(Lepus)
+Meles <- abundance_and_cameras[,12] > 0
+sum(Meles)
+Oryx <- abundance_and_cameras[,13] > 0
+sum(Oryx)
+Sus <- abundance_and_cameras[,14] > 0
+sum(Sus)
+Vulpus <- abundance_and_cameras[,15] > 0
+sum(Vulpus)
+```
+
+298 cameras
+
+Species with a minimum of 20 cameras - Canis aureus, Gazella Dorcas, Hyaena hyaena, Hystrix indica, Lepus capensis, Vulpus vulpus
+
+```{r filtering out rare species}
+
+spp_no_rare <- abu_by_spp.NegevHighlands[,27:40]
+print(colSums(spp_no_rare))
+# filter out species with less than 20 individuals (rare species)
+spp_no_rare <- spp_no_rare[,.SD,.SDcols = colSums(spp_no_rare)>=20]
+spp_no_rare <- mvabund(spp_no_rare)
+print(colSums(spp_no_rare))
+```
+
+Left with 6 species after filtering
+
+```{r community analysis MVabund, fig.height=8, fig.width=10}
+
+env_data <- abu_by_spp.NegevHighlands[,..col_names]
+
+mva_m0.po <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff, family = "poisson", data = env_data)
+
+mva_m0.nb <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff, family = "negative.binomial", data = env_data)
+
+aic_dt <- data.table(nb = mva_m0.nb$aic, po=mva_m0.po$aic)
+colMeans(aic_dt)
+print("POISSON")
+plot(mva_m0.po, which=1:3)
+print("NEGATIVE BINOMIAL")
+plot(mva_m0.nb, which=1:3)
+```
+
+prefer negative binomial because standardized residuals are smaller.
+
+```{r community analysis MVabund 2}
+# mva_m0 <- mva_m0.po
+# mva_m1 <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + dunes*rescaled_Time.Diff + Distance_rescaled:dunes + cos_td_rad + sin_td_rad + site, family = "poisson", data = env_data)
+# aic_dt$po1 <- mva_m1$aic
+mva_m0 <- mva_m0.nb
+mva_m1 <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Transect_with_date, data = env_data)
+aic_dt$nb1 <- mva_m1$aic
+colMeans(aic_dt)
+
+mva_m2 <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Transect, data = env_data)
+
+aic_dt$nb2 <- mva_m2$aic
+colMeans(aic_dt)
+
+mva_m3 <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Site, data = env_data)
+aic_dt$nb3 <- mva_m2$aic
+colMeans(aic_dt)
+```
+
+Transect + date, Transect and Site improve the model. 
+
+
+## Many GLM with Site:
+
+```{r community analysis (site) MVabund model selection}
+mva_m0.nb <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Site, family = "negative.binomial", data = env_data)
+drop1(mva_m0.nb)
+
+```
+
+Dropped sin time
+
+```{r community analysis (site) MVabund model selection 2}
+# mva_m2 <- manyglm(formula = spp_no_rare ~ Distance_rescaled + dunes*rescaled_Time.Diff + Distance_rescaled:dunes + cos_td_rad + sin_td_rad, family = "poisson", data = env_data)
+mva_m2 <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + Site, family = "negative.binomial", data = env_data)
+drop1(mva_m2)
+```
+
+ Dropped cosin monitoring time
+ 
+```{r community analysis (site) MVabund model selection 3}
+# mva_m2 <- manyglm(formula = spp_no_rare ~ Distance_rescaled + dunes + rescaled_Time.Diff + Distance_rescaled:dunes + cos_td_rad + sin_td_rad, family = "poisson", data = env_data)
+mva_m2 <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + Site, family = "negative.binomial", data = env_data)
+drop1(mva_m2)
+```
+
+ Final model includes Site and the interaction between distance from settlement and time difference
+
+```{r community analysis (site) MVabund model selection 4}
+# mva_m2 <- manyglm(formula = spp_no_rare ~ Distance_rescaled + dunes + rescaled_Time.Diff + Distance_rescaled:dunes + cos_td_rad + sin_td_rad, family = "poisson", data = env_data)
+# mva_m2 <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + Site, family = "negative.binomial", data = env_data)
+# drop1(mva_m2)
+```
+
+```{r community analysis (site) MVabund model validation, fig.height=8, fig.width=10}
+plot(mva_m2, which=1:3)
+```
+
+```{r community analysis (site) MVabund model interpretation}
+# summ_m2 <- summary(mva_m2)
+# saveRDS(summ_m2, file = "output/summ_negev_highlands_999iter.rds")
+summ_m2 <- readRDS(file = "output/summ_negev_highlands_999iter.rds")
+print(summ_m2)
+# anov_m2.uni <- anova(mva_m2, p.uni = "adjusted")
+# saveRDS(anov_m2.uni, file = "output/anova_negev_highlands_999iter.rds")
+anov_m2.uni <- readRDS(file = "output/anova_negev_highlands_999iter.rds")
+print(anov_m2.uni)
+```
+
+**Multivariate test shows that site, distance from settlements, time difference and the interaction between distance from settlement and time difference statistically affect species composition**
+
+
+```{r community analysis (site) MVabund model interpretation - plot coefficients}
+coefp <- merge(data.table(t(coef(mva_m2)/log(2)),keep.rownames=TRUE), data.table(t(anov_m2.uni$uni.p), keep.rownames = TRUE), by = "rn") # coefficients are exponentiated because the link function used for poisson is log -> above 1 is positive and below 1 is negative
+# add total species abundance
+
+coefp <- merge(coefp,as.data.table(colSums(spp_no_rare),keep.rownames = TRUE), by.x = "rn", by.y = "V1")
+
+colnames(coefp) <- c("SciName","Intercept.coef","Distance.coef","Time_diff.coef","Site_Ezuz.coef","Site_Merhav_Am.coef","Site_Sde_Boker.coef","Site_Yeruham.coef","Distance_time.coef","Intercept.p","Distance.p","Time_diff.p","Site.p","Distance_time.p","species_abundance")
+
+write.csv(coefp, "coefficients_Negev_Highland.csv")
+
+# plot.Time_diff <- ggplot(coefp[order(Time_diff.coef)], aes(Time_diff.coef,as.numeric(rownames(coefp)))) +
+#  xlim (-2, 2) +
+# geom_point(aes(fill=factor(Time_diff.p<0.1)),color = "black", size=3, shape=21) +
+#   geom_text(aes(label = paste0("(",species_abundance,") ",SciName)), size=3, nudge_y = -0.3) +
+#   geom_vline(xintercept = 0, color="black", size=1.5, linetype = "dotted") +
+#   labs(fill = "") +
+#   xlab("Effect of time difference on species abundances") +
+#   ylab("")+
+#   scale_fill_discrete(breaks = factor(TRUE), labels = "P<0.1", type = c("grey","black"))
+# 
+# 
+# plot.Distance <- ggplot(coefp[order(Distance.coef)],
+# aes(Distance.coef,as.numeric(rownames(coefp)))) +
+#  xlim (-3, 3) +
+# geom_point(aes(fill=factor(Distance.p<0.1)),color = "black", size=3, shape=21) +
+#   geom_text(aes(label = paste0("(",species_abundance,") ",SciName)), size=3, nudge_y = -0.3) +
+#   geom_vline(xintercept = 0, color="black", size=1.5, linetype = "dotted") +
+#   labs(fill = "") +
+#   xlab("Effect of distance from settlement on species abundances") +
+#   ylab("")+
+#   scale_fill_discrete(breaks = factor(TRUE), labels = "P<0.1", type = c("black","grey"))
+
+# plot.Distance.Agri <- ggplot(coefp[order(Distance_agri.coef)],
+# aes(Distance_agri.coef,as.numeric(rownames(coefp)))) +
+#  xlim (-3, 3) +
+# geom_point(aes(fill=factor(Distance_agri.p<0.1)),color = "black", size=3, shape=21) +
+#   geom_text(aes(label = paste0("(",species_abundance,") ",SciName)), size=3, nudge_y = -0.3) +
+#   geom_vline(xintercept = 0, color="black", size=1.5, linetype = "dotted") +
+#   labs(fill = "") +
+#   xlab("Effect of distance from agriculture on species abundances") +
+#   ylab("")+
+#   scale_fill_discrete(breaks = factor(TRUE), labels = "P<0.1", type = c("black","grey"))
+
+# plot.Time_diff
+# plot.Distance
+# plot.Distance.Agri
+
+```
+
+```{r Individual species models - with interaction}
+
+####Canis aureus####
+
+Canis.aureus <- spp_no_rare[,"Canis.aureus"]
+glm.Canis.aureus <- glm.nb(formula = Canis.aureus ~ Distance_rescaled * rescaled_Time.Diff + Site, data = env_data)
+coef(glm.Canis.aureus)
+coef(mva_m2)
+
+Canis_inetract <- interact_plot(model = glm.Canis.aureus, data=env_data, pred = rescaled_Time.Diff, modx = Distance_rescaled, modx.values = "plus-minus", partial.residuals = F, jitter = c(0.2), point.size = 3, rug = F, point.shape = F, interval = T, colors = "Dark2") + scale_x_continuous(breaks=c(-1.233466888,-0.601840099,0.028922631,0.66054942,1.291312151), labels=c("June 2014", "June 2016", "June 2018", "June 2020", "June 2022"), name = "Time")
+
+
+# Canis.interaction.near <- data.frame(Site = "Bislach",
+#                            rescaled_Time.Diff = c(-1.180759317,1.344019721),
+#                            Distance_rescaled = -0.6386647)
+# 
+# predict(glm.Canis.aureus, newdata = Canis.interaction.near,
+#         type = "response")
+# 
+# #Increase of 1352.67% over time near settlements 
+# 
+# (6.1172275 /0.4211005 ) - 1
+# 
+# #or 14.52 fold 
+# (6.1172275/0.4211005)
+# 
+# 
+# Canis.interaction.far <- data.frame(Site = "Bislach",
+#                            rescaled_Time.Diff = c(-1.180759317,1.344019721), 
+#                            Distance_rescaled = 0.6095490)
+# 
+# predict(glm.Canis.aureus, newdata = Canis.interaction.far,
+#         type = "response")
+# 
+# #Decrease of 109.74% over time far from settlements 
+# 
+# (1.5234634 /0.7263442 ) - 1
+# 
+# #or 2.09 fold
+# (1.5234634/0.7263442)
+
+canis_aur_interact_plot <- plot_model_interaction(P.anal = env_data,
+                                                  m = glm.Canis.aureus,
+                                                  eff2plot = "rescaled_Time.Diff",
+                                                  modvar2plot = "Distance_rescaled",
+                                                  plot_points=FALSE,
+                                                  plot_residuals=FALSE,
+                                                  export_plot=TRUE,
+                                                  ylabel = NULL,
+                                                  fontname = "Almoni ML v5 AAA",
+                                                  fontsize=22,
+                                                  pdf_width=160,
+                                                  outpath = "output/negev_highlands/",
+                                                  legend_position = "bottom")
+  
+#Testing whether trends and means are different from zero
+
+#Calculate mean and sd of distance
+sd_distance <- sd(env_data$Distance_rescaled)
+print(sd_distance)
+mean_distance <- mean(env_data$Distance_rescaled)
+print(mean_distance)
+
+#calculate +/1 1 SD
+small_distance <- mean_distance - sd_distance 
+large_distance <- mean_distance + sd_distance
+
+#Test whether temporal trend is different from zero
+mm_rescaled_time <- emtrends(glm.Canis.aureus, specs = "Distance_rescaled", var = "rescaled_Time.Diff", type = "response", at = list(Distance_rescaled = c(small_distance,large_distance)))
+print(mm_rescaled_time)
+test_results_mm_rescaled_time <- test(mm_rescaled_time, null = 0, adjust = "fdr")
+print(test_results_mm_rescaled_time)
+
+#Testing whether abundance is higher near or far from settlements
+pairwise_distance <- emmeans(object = glm.Canis.aureus, ~Distance_rescaled*rescaled_Time.Diff, at = list(Distance_rescaled = c(small_distance,large_distance)))
+test_results_distance <- test(pairs(pairwise_distance, by="rescaled_Time.Diff"), by=NULL, adjust="fdr")
+print(test_results_distance)
+
+
+```
+
+temporal trend is significantly different from zero in small distances from settlements (p < 0.0001) and not significantly different from zero in large distances (p = 0.098)
+
+On average over time, Jackal abundance is significantly higher near settlements (p = 0.0009)
+
+```{r Individual species models - no interaction}
+
+####Gazella dorcas####
+
+Gazella.dorcas <- spp_no_rare[,"Gazella.dorcas"]
+glm.Gazella.dorcas <- glm.nb(formula = Gazella.dorcas ~ Distance_rescaled + rescaled_Time.Diff + Site, data = env_data)
+print(summary(glm.Gazella.dorcas))
+coef(glm.Gazella.dorcas)
+coef(mva_m2)
+
+# Time graph - need to change y axis scale in plot_model_effect_mammals (uncomment lines 128 - 129 in function)
+
+source("functions/plot_model_effect_mammals.R")
+
+plot_model_effect(P.anal = env_data, m = glm.Gazella.dorcas, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/negev_highlands/") 
+
+
+dorcas_time <- effect_plot(model = glm.Gazella.dorcas, data=env_data, pred = rescaled_Time.Diff, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1") + scale_x_continuous(breaks=c(-1.233466888,-0.601840099,0.028922631,0.66054942,1.291312151), labels=c("June 2014", "June 2016", "June 2018", "June 2020", "June 2022"), name = "Time")
+
+dorcas_time
+
+# #Time references - 01/08/2014 and 01/08/2022
+# dorcase.time <- data.frame(Site = "Bislach",
+#                            rescaled_Time.Diff = c(-1.180759317,1.344019721),
+#                            Distance_rescaled = -0.01455781)
+# 
+# predict(glm.Gazella.dorcas, newdata = dorcase.time,
+#         type = "response")
+# 
+# #Increase of 554.35% during monitoring year or 6.54 fold
+# (0.7550233 /0.1153835 ) - 1
+# (0.7550233/0.1153835)
+# 
+# sum(P.anal$`Gazella dorcas`[P.anal$year=="2014"])
+# sum(P.anal$`Gazella dorcas`[P.anal$year=="2022"])
+# 
+# #Increase of 1500% during monitoring years or 16 fold
+# 
+# (96/6 - 1) *100
+# 96/6
+
+
+plot_model_effect(P.anal = env_data, m = glm.Gazella.dorcas, eff2plot = "Distance_rescaled", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/negev_highlands/")
+
+
+dorcas_distance <- effect_plot(model = glm.Gazella.dorcas, data=env_data, pred = Distance_rescaled, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1") + scale_x_continuous(breaks=c(-0.820445737,0.018246686,0.950127155,1.882007625), labels=c("100", "1000", "2000", "3000"), name = "Distance (m)")
+
+
+# dorcase.distance <- data.frame(Site = "Bislach",
+#                            rescaled_Time.Diff = 0.4169025, 
+#                            Distance_rescaled = c(-0.820445737,-0.447693549,
+#                                                  0.018246686,0.48418692,0.950127155))
+# 
+# predict(glm.Gazella.dorcas, newdata = dorcase.distance,
+#         type = "response")
+# 
+# #Decrease from 100 to 2000 m of 685.71% or 7.85 fold
+# (1.1645712/0.1482179) - 1
+# (1.1645712/0.1482179)
+# 
+# # Decrease of 172.02% every 500 m
+#  
+# 0.3935262  / 0.2287586
+# 0.6769707 / 0.3935262 
+
+
+####Hyaena hyaena#### 
+
+Hyaena.hyaena <- spp_no_rare[,"Hyaena.hyaena"]
+glm.Hyaena.hyaena <- glm.nb(formula = Hyaena.hyaena ~ Distance_rescaled + rescaled_Time.Diff + Site, data = env_data)
+print(summary(glm.Hyaena.hyaena))
+coef(glm.Hyaena.hyaena)
+coef(mva_m2)
+
+# Time graph - need to change y axis scale in plot_model_effect_mammals (uncomment lines 128 - 129 in function)
+
+plot_model_effect(P.anal = env_data, m = glm.Hyaena.hyaena, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/negev_highlands/", y_cutoff = 2, y_breaks = seq(0,2, by = 0.5))
+
+
+hyaena_time <- effect_plot(model = glm.Hyaena.hyaena, data=env_data, pred = rescaled_Time.Diff, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1") + scale_x_continuous(breaks=c(-1.233466888,-0.601840099,0.028922631,0.66054942,1.291312151), labels=c("June 2014", "June 2016", "June 2018", "June 2020", "June 2022"), name = "Time")
+
+hyaena_time
+
+#Time references - 01/08/2014 and 01/08/2022
+# hyaena.time <- data.frame(Site = "Bislach",
+#                            rescaled_Time.Diff = c(-1.180759317,1.344019721),
+#                            Distance_rescaled = -0.01455781)
+# 
+# predict(glm.Hyaena.hyaena, newdata = hyaena.time,
+#         type = "response")
+# 
+# #Increase of 202.51% during monitoring year or 3.02 fold
+# (0.9886008 /0.3267927 ) - 1
+# (0.9886008/0.3267927)
+# 
+# sum(P.anal$`Hyaena hyaena`[P.anal$year=="2014"])
+# sum(P.anal$`Hyaena hyaena`[P.anal$year=="2022"])
+
+#Increase of 1966.66% during monitoring years or 20.66 fold
+
+# (62/3 - 1) *100
+# 62/3
+
+#### Hystrix indica####
+
+Hystrix.indica <- spp_no_rare[,"Hystrix.indica"]
+glm.Hystrix.indica <- glm.nb(formula = Hystrix.indica ~ Distance_rescaled + rescaled_Time.Diff + Site, data = env_data)
+print(summary(glm.Hystrix.indica))
+coef(glm.Hystrix.indica)
+coef(mva_m2)
+
+# Time graph - need to change y axis scale in plot_model_effect_mammals (uncomment lines 128 - 129 in function)
+
+plot_model_effect(P.anal = env_data, m = glm.Hystrix.indica, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/negev_highlands/", y_cutoff = 2.7, y_breaks = seq(0,2.5, by = 0.5))
+
+
+hystrix_time <- effect_plot(model = glm.Hystrix.indica, data=env_data, pred = rescaled_Time.Diff, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1") + scale_x_continuous(breaks=c(-1.233466888,-0.601840099,0.028922631,0.66054942,1.291312151), labels=c("June 2014", "June 2016", "June 2018", "June 2020", "June 2022"), name = "Time")
+
+hystrix_time
+
+#Time references - 01/08/2014 and 01/08/2022
+# hystrix.time <- data.frame(Site = "Bislach",
+#                            rescaled_Time.Diff = c(-1.180759317,1.344019721),
+#                            Distance_rescaled = -0.01455781)
+# 
+# predict(glm.Hystrix.indica, newdata = hystrix.time,
+#         type = "response")
+# 
+# #Increase of 225.32% during monitoring year or 3.25 fold
+# (1.3901255 /0.4272973 ) - 1
+# (1.3901255/0.4272973)
+# 
+# sum(P.anal$`Hystrix indica`[P.anal$year=="2014"])
+# sum(P.anal$`Hystrix indica`[P.anal$year=="2022"])
+
+#Increase of 216% during monitoring years or 3.16 fold
+
+# (158/50 - 1) *100
+# 158/50
+
+plot_model_effect(P.anal = env_data, m = glm.Hystrix.indica, eff2plot = "Distance_rescaled", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/negev_highlands/")
+
+hystrix_distance<- effect_plot(model = glm.Hystrix.indica, data=env_data, pred = Distance_rescaled, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1") + scale_x_continuous(breaks=c(-0.820445737,0.018246686,0.950127155,1.882007625), labels=c("100", "1000", "2000", "3000"), name = "Distance (m)")
+
+hystrix_distance
+
+# hystrix.distance <- data.frame(Site = "Bislach",
+#                            rescaled_Time.Diff = 0.4169025, 
+#                            Distance_rescaled = c(-0.820445737,-0.447693549,
+#                                                  0.018246686,0.48418692,0.950127155))
+# 
+# predict(glm.Hystrix.indica, newdata = hystrix.distance,
+#         type = "response")
+# 
+# #Decrease from 100 to 2000 m of 340.37% or 4.40 fold
+# (1.7699745/0.4019205) - 1
+# (1.7699745/0.4019205)
+# 
+# # Decrease of 67.69% every 500 m
+#  
+# 0.5937016  / 0.8769935 
+# 0.8769935  / 1.2954615  
+
+####Lepus capensis####
+
+Lepus.capensis <- spp_no_rare[,"Lepus.capensis"]
+glm.Lepus.capensis <- glm.nb(formula = Lepus.capensis ~ Distance_rescaled + rescaled_Time.Diff + Site, data = env_data)
+coef(glm.Lepus.capensis)
+coef(mva_m2)
+
+
+plot_model_effect(P.anal = env_data, m = glm.Lepus.capensis, eff2plot = "Distance_rescaled", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/negev_highlands/")
+  
+lepus_distance <- effect_plot(model = glm.Lepus.capensis, data=env_data, pred = Distance_rescaled, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1") + scale_x_continuous(breaks=c(-0.820445737,0.018246686,0.950127155,1.882007625), labels=c("100", "1000", "2000", "3000"), name = "Distance (m)")
+
+lepus_distance
+
+# lepus.distance <- data.frame(Site = "Bislach",
+#                            rescaled_Time.Diff = 0.4169025, 
+#                            Distance_rescaled = c(-0.820445737,-0.447693549,
+#                                                  0.018246686,0.48418692,0.950127155))
+# 
+# predict(glm.Lepus.capensis, newdata = lepus.distance,
+#         type = "response")
+# 
+# #Increase from 100 to 2000 m of 893.42% or 9.93 fold
+# (1.4130860/0.1422435) - 1
+# (1.4130860/0.1422435)
+# 
+# # Increase of 182.98% every 500 m
+#  
+# 0.4220462  / 0.2306512 
+# 0.772261  / 0.4220462 
+
+
+####Vulpus vulpus####
+
+Vulpes.vulpes <- spp_no_rare[,"Vulpes.vulpes"]
+glm.Vulpes.vulpes <- glm.nb(formula = Vulpes.vulpes ~ Distance_rescaled + rescaled_Time.Diff + Site, data = env_data)
+print(summary(glm.Vulpes.vulpes))
+coef(glm.Vulpes.vulpes)
+coef(mva_m2)
+
+plot_model_effect(P.anal = env_data, m = glm.Vulpes.vulpes, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/negev_highlands/")
+
+vulpes_time <- effect_plot(model = glm.Vulpes.vulpes, data=env_data, pred = rescaled_Time.Diff, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1") + scale_x_continuous(breaks=c(-1.233466888,-0.601840099,0.028922631,0.66054942,1.291312151), labels=c("June 2014", "June 2016", "June 2018", "June 2020", "June 2022"), name = "Time")
+
+vulpes_time
+
+
+#Time references - 01/08/2014 and 01/08/2022
+# vulpes.time <- data.frame(Site = "Bislach",
+#                            rescaled_Time.Diff = c(-1.180759317,1.344019721),
+#                            Distance_rescaled = -0.01455781)
+# 
+# predict(glm.Vulpes.vulpes, newdata = vulpes.time,
+#         type = "response")
+# 
+# #Increase of 125.45% during monitoring year or 2.25 fold
+# (0.6774129 /0.3004216 ) - 1
+# (0.6774129/0.3004216)
+
+
+# sum(P.anal$`Vulpes vulpes`[P.anal$year=="2016"])
+# sum(P.anal$`Vulpes vulpes`[P.anal$year=="2022"])
+# range(P.anal$Distance[P.anal$Settlements=="Near"])
+# range(P.anal$Distance[P.anal$Settlements=="Far"])
+# 
+# #Increase of 39.6% during monitoring years (here only from 2016 because of no observations in 2014) or 1.39 fold
+# 
+# (141/101 - 1) *100
+# 141/101
+
+vulpes_distance <- plot_model_effect(P.anal = env_data, m = glm.Vulpes.vulpes, eff2plot = "Distance_rescaled", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/negev_highlands/")
+
+vulpes_distance <- effect_plot(model = glm.Vulpes.vulpes, data=env_data, pred = Distance_rescaled, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1") + scale_x_continuous(breaks=c(-0.820445737,0.018246686,0.950127155,1.882007625), labels=c("100", "1000", "2000", "3000"), name = "Distance (m)")
+
+vulpes_distance
+
+# vulpes.distance <- data.frame(Site = "Bislach",
+#                            rescaled_Time.Diff = 0.4169025, 
+#                            Distance_rescaled = c(-0.820445737,-0.447693549,
+#                                                  0.018246686,0.48418692,0.950127155))
+# 
+# predict(glm.Vulpes.vulpes, newdata = vulpes.distance,
+#         type = "response")
+# 
+# #Decrase from 100 to 2000 m of 51.77% or 1.51 fold
+# (0.6076493 /0.4003738 ) - 1
+# (0.6076493 /0.4003738 )
+# 
+# # Decrease of 89.6% every 500 m
+#  
+# 0.4468344  / 0.4986863 
+# 0.4986863  / 0.5565553 
+
+```
+
+n = 298 (total number of cameras)
+
+total abundance (all species) = 2540, abundance without rare species is the same as total abundance
+
+### Session information
+
+```{r}
+session_info()
+```
+

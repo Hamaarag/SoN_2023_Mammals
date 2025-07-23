@@ -1,0 +1,491 @@
+---
+title: "Mammal data - Mediterranean Maquis - no interaction with subunit"
+author: "Ron Chen & Talia Gabay"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+#knitr::opts_chunk$set(dev = "cairo_pdf", dev.args=list(cairo_pdf = list(family='Arial')))
+
+#Load packages
+library(devtools)
+library(rlang)
+library(ggplot2)
+library(data.table)
+library(dplyr)
+library(mvabund)
+library(kableExtra)
+library(lme4)
+library(MASS)
+library(vegan)
+library(jtools)
+library(interactions)
+library(car)
+library(ecoCopula)
+library(chron)
+library(data.table)
+library(readxl)
+library(performance)
+library(Cairo)
+library(emmeans)
+library(extrafont)
+
+#Load functions
+source("functions/plot_alpha_diversity_cycle_num.R")
+source("functions/plot_model_effect_mammals_Maquis_and_Forest.R")
+source("functions/plot_interaction_mammals_Maquis_and_Forest.R")
+source_url("https://raw.githubusercontent.com/ronchen1/ron_functions/d2d0bab4dc65f29e53d316ae4098d0469711905b/R/multiplot.R", sha1 = "eef55df1963ba201f57cf44513f566298756fd4f")
+
+```
+
+
+
+```{r load data, include=FALSE}
+# Abundance table - all data
+all.mammal.abundances <- read.csv("data/mammals.abundance.matrix.TG.csv", header = TRUE, sep =",") %>% as.data.table()
+
+
+#Species names
+sci_names <- readxl::read_excel(path = 'data/Scientific.names.mammals.xlsx') %>% as.data.table()
+#Make species list
+sci_names_list <- as.character(sort(unique(sci_names$SciName)))
+#Change species column names in abundance table 
+colnames(all.mammal.abundances)[27:40] <- sci_names_list 
+#colnames(all.mammal.abundances)[25:38] <- sci_names_list   
+   
+all.mammal.abundances <- all.mammal.abundances[,-30]
+ 
+  P_byplot <- copy(all.mammal.abundances)
+  P_byplot[,`:=`(richness = apply(.SD,1,(\(x) sum(x>0))),
+                 abundance = apply(.SD,1,sum),
+                 gma=apply(.SD,1,(\(x) exp( sum(log(x[x>0])) / sum(x>0) )))),
+           .SDcols = sci_names_list[-4]]
+
+```
+
+```{r load using function}
+
+P <- P_byplot[grepl("Mediterranean Maquis",Unit),][order(Cycle_number,Site)][,Site:=factor(Site)]
+```
+
+## Mediterranean Maquis - Richness by camera
+
+### Monitoring started in 2014 (5 monitoring cycles), Each site has two types of plots - far or near settlements
+### There are 15 sites total, each site has 5 sampling points 
+
+Let's first validate the data:
+
+```{r data validation}
+#include rare species in analysis
+P.anal <- copy(P) # set a fixed variable name for analysis, if want to switch between data WITH rare #species and data WITHOUT rare species then only change once here
+#Validate factors and levels
+P.anal$Settlements <- as.factor(P.anal$Settlements)
+print("Settlements has 2 levels")
+print(levels(P.anal$Settlements))
+P.anal$Subunit <- as.factor(P.anal$Subunit)
+print("Subunit has 3 levels")
+print(levels(P.anal$Subunit))
+P.anal$Site <- as.factor(P.anal$Site)
+print("Site has 15 levels")
+print(levels(P.anal$Site))
+P.anal$Transect <- as.factor(P.anal$Transect)
+print("Transect has 30 levels")
+print(levels(P.anal$Transect))
+P.anal$Transect_with_date <- as.factor(P.anal$Transect_with_date)
+print("Transect with date has 150 levels")
+print(levels(P.anal$Transect_with_date))
+
+```
+```{r richness data explore, fig.height = 8, fig.width = 10}
+print("RICHNESS WITH RARE SPECIES")
+plot_alpha_diversity(P, x_val = "Subunit", y_val = "richness", ylab_val = "richness", xlab_val = "Subunit", fill_val = "Subunit")
+
+col_names <- c("Cycle_number",  "Deployment.id_new",	"Unit",	"Subunit",	"Site", "Settlements",	"Distance_rescaled", "Lon",	"Lat", "year", "rescaled_Time.Diff", "sinus_Monitoring.Time.Diff", "cosinus_Monitoring.Time.Diff", "Transect", "Transect_with_date")
+
+abu_by_spp.Maquis <- all.mammal.abundances[grepl("Mediterranean Maquis",Unit),]
+spp <- abu_by_spp.Maquis[,c(27:39)]
+
+# filter out species with zero counts 
+print(colSums(spp))
+spp <- spp[,.SD,.SDcols = colSums(spp)>0]
+spp <- mvabund(spp)
+
+plot(spp ~ P.anal$Subunit, overall.main="raw abundances", transformation = "no")
+
+my_cols <- c("blue", "darkgreen", "red")
+dotchart(P.anal$richness, ylab = "Subunit",
+         groups = P.anal$Subunit, gcolor = my_cols,
+         color = my_cols[P.anal$Subunit],
+         cex = 0.9,  pch = 1, xlab = "richness")
+
+kable(summary(P.anal[,.(richness, abundance, Subunit, rescaled_Time.Diff, cosinus_Monitoring.Time.Diff, sinus_Monitoring.Time.Diff, Site, Transect, Transect_with_date, Distance_rescaled)]))
+pairs(P.anal[,lapply(X = .SD,FUN = as.numeric),.SDcols=c("Subunit","sinus_Monitoring.Time.Diff", "cosinus_Monitoring.Time.Diff", "rescaled_Time.Diff","Site","Transect", "Transect_with_date", "Distance_rescaled")])
+kable(cor(P.anal[,lapply(X = .SD,FUN = as.numeric),.SDcols=c("Subunit","sinus_Monitoring.Time.Diff", "cosinus_Monitoring.Time.Diff", "rescaled_Time.Diff","Site","Transect", "Transect_with_date", "Distance_rescaled")]))
+meanvar.plot(spp, xlab = "mean abundance of a given species across sites", ylab = "variance of the abundance of a given species across sites")
+
+```
+
+### Community analysis using package MVabund
+
+
+Table of abundances per species by camera ID
+
+```{r print table with rare species}
+abundance_and_cameras <- as.data.table(abu_by_spp.Maquis[,c(5,27:39)])
+dim(abundance_and_cameras)
+canisau <- abundance_and_cameras[,2] > 0
+sum(canisau)
+canislup <- abundance_and_cameras[,3] > 0
+sum(canislup)
+capra <- abundance_and_cameras[,4] > 0
+sum(capra)
+Equus <- abundance_and_cameras[,5] > 0
+sum(Equus)
+Gazellador <- abundance_and_cameras[,6] > 0
+sum(Gazellador)
+Gazellagaz <- abundance_and_cameras[,7] > 0
+sum(Gazellagaz)
+Hyaena <- abundance_and_cameras[,8] > 0
+sum(Hyaena)
+Hystrix <- abundance_and_cameras[,9] > 0
+sum(Hystrix)
+Lepus <- abundance_and_cameras[,10] > 0
+sum(Lepus)
+Meles <- abundance_and_cameras[,11] > 0
+sum(Meles)
+Oryx <- abundance_and_cameras[,12] > 0
+sum(Oryx)
+Sus <- abundance_and_cameras[,13] > 0
+sum(Sus)
+Vulpes <- abundance_and_cameras[,14] > 0
+sum(Vulpes)
+```
+
+1117 cameras. Species with a minimum of 20 cameras - Canis aureus, Canis lupus, Gazella gazella, Hyaena hyaena, Hystrix indica, Meles meles, Sus scorfa and Vulpes vulpes
+
+```{r filtering out rare species}
+
+spp_no_rare <- abu_by_spp.Maquis[,27:39]
+print(colSums(spp_no_rare))
+# filter out species with less than 20 individuals (rare species)
+spp_no_rare <- spp_no_rare[,.SD,.SDcols = colSums(spp_no_rare)>=20]
+#spp_no_rare <- spp_no_rare[,c(-2,-6)]
+spp_no_rare <- mvabund(spp_no_rare)
+print(colSums(spp_no_rare))
+
+#Sus scorfa abundance across subunit, sites and projectid
+my_cols <- c("blue", "darkgreen", "red")
+dotchart(P.anal$`Sus scrofa`, ylab = "Subunit",
+         groups = P.anal$Subunit, gcolor = my_cols,
+         color = my_cols[P.anal$Subunit],
+         cex = 0.9,  pch = 1, xlab = "Abundance")
+
+P.anal$Project.ID <- as.factor(P.anal$Project.ID)
+my_cols <- c("blue", "darkgreen", "red", "purple", "darkorange")
+dotchart(P.anal$`Sus scrofa`, ylab = "Project.ID",
+         groups = P.anal$Project.ID, gcolor = my_cols,
+         color = my_cols[P.anal$Project.ID],
+         cex = 0.9,  pch = 1, xlab = "Abundance")
+
+fun_color_range <- colorRampPalette(c("#1b98e0", "red"))
+my_cols <- fun_color_range(15)    
+dotchart(P.anal$`Sus scrofa`, ylab = "Site",
+         groups = P.anal$Site, gcolor = my_cols,
+         color = my_cols[P.anal$Site],
+         cex = 0.9,  pch = 1, xlab = "Abundance")
+
+```
+
+Species with 20 individuals or more - Canis aureus, Canis lupus, Gazella gazella, Hyaena hyaena, Hystrix indica, Meles meles, Sus scorfa and Vulpes vulpes
+
+Left with 8 species
+
+```{r community analysis MVabund, fig.height=8, fig.width=10}
+
+env_data <- abu_by_spp.Maquis[,..col_names]
+
+mva_m0.po <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff, family = "poisson", data = env_data)
+
+mva_m0.nb <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff, family = "negative.binomial", data = env_data)
+
+aic_dt <- data.table(nb = mva_m0.nb$aic, po=mva_m0.po$aic)
+colMeans(aic_dt)
+print("POISSON")
+plot(mva_m0.po, which=1:3)
+print("NEGATIVE BINOMIAL")
+plot(mva_m0.nb, which=1:3)
+```
+
+prefer negative binomial because standardized residuals are smaller.
+
+```{r community analysis MVabund 2}
+
+# mva_m0 <- mva_m0.po
+# mva_m1 <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + dunes*rescaled_Time.Diff + Distance_rescaled:dunes + cos_td_rad + sin_td_rad + site, family = "poisson", data = env_data)
+# aic_dt$po1 <- mva_m1$aic
+
+mva_m0 <- mva_m0.nb
+mva_m1 <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Site + Subunit, data = env_data)
+aic_dt$nb1 <- mva_m1$aic
+colMeans(aic_dt)
+
+mva_m2 <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Transect, data = env_data)
+aic_dt$nb2 <- mva_m2$aic
+colMeans(aic_dt)
+
+mva_m3 <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Site, data = env_data)
+aic_dt$nb3 <- mva_m2$aic
+colMeans(aic_dt)
+
+mva_m4 <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Subunit, data = env_data)
+aic_dt$nb4 <- mva_m2$aic
+colMeans(aic_dt)
+```
+
+Will proceed with subunit:
+
+
+# Many GLM with subunit
+
+```{r community analysis (subunit) MVabund model selection}
+mva_m0.nb <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Subunit, family = "negative.binomial", data = env_data)
+drop1(mva_m0.nb)
+
+```
+
+Dropped sin time
+
+```{r community analysis (subunit) MVabund model selection 2}
+# mva_m2 <- manyglm(formula = spp_no_rare ~ Distance_rescaled + dunes*rescaled_Time.Diff + Distance_rescaled:dunes + cos_td_rad + sin_td_rad, family = "poisson", data = env_data)
+mva_m2 <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + Subunit, family = "negative.binomial", data = env_data)
+drop1(mva_m2)
+```
+
+ 
+```{r community analysis (subunit) MVabund model selection 3}
+# mva_m2 <- manyglm(formula = spp_no_rare ~ Distance_rescaled + dunes + rescaled_Time.Diff + Distance_rescaled:dunes + cos_td_rad + sin_td_rad, family = "poisson", data = env_data)
+# mva_m2 <- manyglm(formula = spp_no_rare ~ Distance_rescaled + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Site, family = "negative.binomial", data = env_data)
+# drop1(mva_m2)
+```
+
+
+```{r community analysis (subunit) MVabund model selection 4}
+# mva_m2 <- manyglm(formula = spp_no_rare ~ Distance_rescaled + dunes + rescaled_Time.Diff + Distance_rescaled:dunes + cos_td_rad + sin_td_rad, family = "poisson", data = env_data)
+# mva_m2 <- manyglm(formula = spp_no_rare ~ Distance_rescaled + sinus_Monitoring.Time.Diff + Site, family = "negative.binomial", data = env_data)
+# drop1(mva_m2)
+```
+
+## Model includes Subunit, cosin time difference and the interaction between time and distance from settlement (but see below, final model without interaction)
+
+```{r community analysis (subunit) MVabund model selection 5}
+# mva_m2 <- manyglm(formula = spp_no_rare ~ Dunes*rescaled_Time.Diff + sinus_Monitoring.Time.Diff + Transect_with_date, data = env_data)
+ # drop1(mva_m2)
+```
+
+```{r community analysis (subunit) MVabund model validation, fig.height=8, fig.width=10}
+plot(mva_m2, which=1:3)
+```
+
+```{r community analysis (subunit) MVabund model interpretation}
+
+#summ_m2 <- summary(mva_m2)
+#saveRDS(summ_m2, "output/summ_maquis_model_no_subunit_interaction.RDS")
+summ_m2 <- readRDS("output/summ_maquis_model_no_subunit_interaction.RDS")
+print(summ_m2)
+#anov_m2.uni <- anova(mva_m2, p.uni = "adjusted")
+#saveRDS(anov_m2.uni, "output/anova_maquis_model_no_subunit_interaction.RDS")
+anov_m2.uni <- readRDS("output/anova_maquis_model_no_subunit_interaction.RDS")
+print(anov_m2.uni)
+
+```
+
+## Multivariate test shows that subunit, time, distance from settlements and timeXdistance affect species composition
+### However, the interaction of time by distance from settlements is not significant for any of the species (H. indica is nearly significant). Therefore the manyglm model will be re-run without this interaction.
+
+```{r community analysis without interaction, , fig.height=8, fig.width=10}
+mva_m3 <- manyglm(formula = spp_no_rare ~ Distance_rescaled + rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + Subunit, family = "negative.binomial", data = env_data)
+plot(mva_m3, which=1:3)
+
+# summ_m3 <- summary(mva_m3)
+# saveRDS(summ_m3, "output/summ_maquis_model_no_subunit_interaction_no_distXtime_interaction.RDS")
+summ_m3 <- readRDS("output/summ_maquis_model_no_subunit_interaction_no_distXtime_interaction.RDS")
+print(summ_m3)
+
+# anov_m3.uni <- anova(mva_m3, p.uni = "adjusted")
+# saveRDS(anov_m3.uni, "output/anova_maquis_model_no_subunit_interaction_no_distXtime_interaction.RDS")
+anov_m3.uni <- readRDS("output/anova_maquis_model_no_subunit_interaction_no_distXtime_interaction.RDS")
+print(anov_m3.uni)
+
+```
+
+```{r community analysis (subunit) MVabund model interpretation - plot coefficients, error=TRUE}
+coefp <- merge(data.table(t(coef(mva_m3)/log(2)),keep.rownames=TRUE), data.table(t(anov_m3.uni$uni.p), keep.rownames = TRUE), by = "rn") # coefficients are exponentiated because the link function used for poisson is log -> above 1 is positive and below 1 is negative
+# add total species abundance
+coefp <- merge(coefp,as.data.table(colSums(spp_no_rare),keep.rownames = TRUE), by.x = "rn", by.y = "V1")
+
+colnames(coefp) <- c("SciName","Intercept.coef","Distance.coef","time_diff.coef","Cosin_time.coef","Galilee.coef","Judea.coef","Intercept.p","Distance.p","time_diff.p","Cosin_time.p","Subunit.p","Species_abundance")
+
+write.csv(coefp, "coefficients_Maquis_no_subunit_interaction.csv")
+
+```
+
+
+
+### species with statistically significant coefficients are in red:
+ - species affected by distance from settlements are C. aureus, G. gazella, H. hyaena and V. vulpes.
+ - Only H. indica has temporal trend.
+ - all but V. vulpes are affected by subunit.
+ - none have significant interaction between distance from settlements and time.
+
+```{r}
+cs_dt <- coefp[,c(1,3:7)]
+cs_dt$Distance.coef <- cell_spec(cs_dt$Distance.coef, color = ifelse(coefp$Distance.p[1:8]<0.05,"red","black"))
+cs_dt$time_diff.coef <- cell_spec(cs_dt$time_diff.coef, color = ifelse(coefp$time_diff.p[1:8]<0.05,"red","black"))
+cs_dt$Cosin_time.coef <- cell_spec(cs_dt$Cosin_time.coef, color = ifelse(coefp$Cosin_time.p[1:8]<0.05,"red","black"))
+cs_dt$Galilee.coef <- cell_spec(cs_dt$Galilee.coef, color = ifelse(coefp$Subunit.p[1:8]<0.05,"red","black"))
+cs_dt$Judea.coef <- cell_spec(cs_dt$Judea.coef, color = ifelse(coefp$Subunit.p[1:8]<0.05,"red","black"))
+# cs_dt$Distance_time.coef <- cell_spec(cs_dt$Distance_time.coef, color = ifelse(coefp$Distance_time.p[1:8]<0.05,"red","black"))
+kbl(cs_dt, escape = F)
+```
+
+
+```{r community analysis (subunit) - per species models - no interaction term for distance X time}
+
+####Canis aureus####
+
+Canis.aureus <- spp_no_rare[,"Canis.aureus"]
+glm.Canis.aureus <- glm.nb(formula = Canis.aureus ~ Distance_rescaled + rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + Subunit, data = env_data)
+print(summary(glm.Canis.aureus))
+coef(glm.Canis.aureus)
+coef(mva_m3)
+
+plot_model_effect(P.anal = env_data, m = glm.Canis.aureus, eff2plot = "Distance_rescaled", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/maquis/")
+
+
+####Hystrix indica####
+
+Hystrix.indica <- spp_no_rare[,"Hystrix.indica"]
+glm.Hystrix.indica <- glm.nb(formula = Hystrix.indica ~ Distance_rescaled + rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + Subunit, data = env_data)
+coef(glm.Hystrix.indica)
+coef(mva_m3)
+
+plot_model_effect(P.anal = env_data, m = glm.Hystrix.indica, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/maquis/")
+
+
+####Gazella gazella####
+
+Gazella.gazella <- spp_no_rare[,"Gazella.gazella"]
+glm.Gazella.gazella <- glm.nb(formula = Gazella.gazella ~ Distance_rescaled + rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + Subunit, data = env_data)
+print(summary(glm.Gazella.gazella))
+coef(glm.Gazella.gazella)
+coef(mva_m3)
+
+plot_model_effect(P.anal = env_data, m = glm.Gazella.gazella, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/maquis/")
+plot_model_effect(P.anal = env_data, m = glm.Gazella.gazella, eff2plot = "Distance_rescaled", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/maquis/")
+
+####Hyaena hyaena####
+
+Hyaena.hyaena <- spp_no_rare[,"Hyaena.hyaena"]
+glm.Hyaena.hyaena <- glm.nb(formula = Hyaena.hyaena ~ Distance_rescaled + rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + Subunit, data = env_data)
+print(summary(glm.Hyaena.hyaena))
+coef(glm.Hyaena.hyaena)
+coef(mva_m3)
+
+plot_model_effect(P.anal = env_data, m = glm.Hyaena.hyaena, eff2plot = "Distance_rescaled", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/maquis/", y_cutoff = 2.5)
+
+####Vulpes vulpes####
+
+Vulpes.vulpes <- spp_no_rare[,"Vulpes.vulpes"]
+glm.Vulpes.vulpes <- glm.nb(formula = Vulpes.vulpes ~ Distance_rescaled + rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + Subunit, data = env_data)
+print(summary(glm.Vulpes.vulpes))
+coef(glm.Vulpes.vulpes)
+coef(mva_m3)
+
+plot_model_effect(P.anal = env_data, m = glm.Vulpes.vulpes, eff2plot = "Distance_rescaled", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/maquis/")
+
+```
+
+### Analyze two species with interaction between time and distance from settlements
+
+**Hystrix indica**
+
+```{r community analysis (subunit) - per species models (with interaction between time and distance from settlements - H. indica)}
+#####Hystrix indica####
+
+Hystrix.indica <- spp_no_rare[,"Hystrix.indica"]
+glm.Hystrix.indica <- glm.nb(formula = Hystrix.indica ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + Subunit, data = env_data)
+coef(glm.Hystrix.indica)
+coef(mva_m3)
+
+plot_model_interaction(P.anal = env_data, m = glm.Hystrix.indica, eff2plot = "rescaled_Time.Diff", modvar2plot = "Distance_rescaled", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA",
+fontsize=22, pdf_width=160, outpath = "output/maquis/")
+
+
+sd_distance <- sd(env_data$Distance_rescaled)
+print(sd_distance)
+mean_distance <- mean(env_data$Distance_rescaled)
+print(mean_distance)
+
+#calculate +/1 1 SD
+small_distance <- mean_distance - sd_distance 
+large_distance <- mean_distance + sd_distance
+
+#Test whether temporal trend is different from zero
+mm_rescaled_time <- emtrends(glm.Hystrix.indica, specs = "Distance_rescaled", var = "rescaled_Time.Diff", type = "response", at = list(Distance_rescaled = c(small_distance,large_distance)))
+print(mm_rescaled_time)
+test_results_mm_rescaled_time <- test(mm_rescaled_time, null = 0, adjust = "fdr")
+print(test_results_mm_rescaled_time)
+
+#Testing whether abundance is higher near or far from settlements
+pairwise_distance <- emmeans(object = glm.Hystrix.indica, ~ Distance_rescaled*rescaled_Time.Diff, at = list(Distance_rescaled = c(small_distance,large_distance)))
+print(pairwise_distance)
+test_results_distance <- test(pairs(pairwise_distance, by="rescaled_Time.Diff"), by=NULL, adjust="fdr")
+print(test_results_distance)
+```
+
+**Hyaena hyaena**
+
+```{r community analysis (subunit) - per species models (with interaction between time and distance from settlements) - H.hyaena}
+#####Hyaena hyaena####
+
+Hyaena.hyaena <- spp_no_rare[,"Hyaena.hyaena"]
+glm.Hyaena.hyaena <- glm.nb(formula = Hyaena.hyaena ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + Subunit, data = env_data)
+coef(glm.Hyaena.hyaena)
+coef(mva_m3)
+
+plot_model_interaction(P.anal = env_data, m = glm.Hyaena.hyaena, eff2plot = "rescaled_Time.Diff", modvar2plot = "Distance_rescaled", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA",
+fontsize=22, pdf_width=160, outpath = "output/maquis/")
+
+
+sd_distance <- sd(env_data$Distance_rescaled)
+print(sd_distance)
+mean_distance <- mean(env_data$Distance_rescaled)
+print(mean_distance)
+
+#calculate +/1 1 SD
+small_distance <- mean_distance - sd_distance 
+large_distance <- mean_distance + sd_distance
+
+#Test whether temporal trend is different from zero
+mm_rescaled_time <- emtrends(glm.Hyaena.hyaena, specs = "Distance_rescaled", var = "rescaled_Time.Diff", type = "response", at = list(Distance_rescaled = c(small_distance,large_distance)))
+print(mm_rescaled_time)
+test_results_mm_rescaled_time <- test(mm_rescaled_time, null = 0, adjust = "fdr")
+print(test_results_mm_rescaled_time)
+
+#Testing whether abundance is higher near or far from settlements
+pairwise_distance <- emmeans(object = glm.Hyaena.hyaena, ~ Distance_rescaled*rescaled_Time.Diff, at = list(Distance_rescaled = c(small_distance,large_distance)))
+print(pairwise_distance)
+test_results_distance <- test(pairs(pairwise_distance, by="rescaled_Time.Diff"), by=NULL, adjust="fdr")
+print(test_results_distance)
+
+```
+
+### Session information
+
+```{r}
+session_info()
+```
+
