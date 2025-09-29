@@ -5,6 +5,8 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
+##Setup 
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 #knitr::opts_chunk$set(dev = "cairo_pdf", dev.args=list(cairo_pdf = list(family='Arial')))
@@ -34,11 +36,10 @@ library(Cairo)
 library(extrafont)
 
 #Load functions
-source("functions/plot_alpha_diversity_cycle_num.R")
-source("functions/plot_model_effect_mammals.R")
-source("functions/plot_interaction_mammals.R")
+source("../functions/plot_alpha_diversity_cycle_num.R")
+source("../functions/plot_model_effect_mammals.R")
+source("../functions/plot_interaction_mammals.R")
 source_url("https://raw.githubusercontent.com/ronchen1/ron_functions/d2d0bab4dc65f29e53d316ae4098d0469711905b/R/multiplot.R", sha1 = "eef55df1963ba201f57cf44513f566298756fd4f")
-
 
 ```
 
@@ -46,13 +47,13 @@ source_url("https://raw.githubusercontent.com/ronchen1/ron_functions/d2d0bab4dc6
 
 ```{r load data, include=FALSE}
 # Abundance table - all data
-all.mammal.abundances <- read.csv("Data/mammals.abundance.matrix.TG.csv", header = TRUE, sep =",") %>% as.data.table()
+all.mammal.abundances <- read.csv("../data/mammals.abundance.matrix.TG.csv", header = TRUE, sep =",") %>% as.data.table()
 
 #Incidence table - all data
 #all.mammal.incidences <- read.csv("C:/Users/Talia Gabay/OneDrive - #post.bgu.ac.il/Hamaarag_Mammals_analysis_Talia_Copy/Data/mammals.indcidence.matrix.csv", header = #TRUE, sep =",") %>% as.data.table()
 
 #Species names
-sci_names <- readxl::read_excel(path = 'Data/Scientific.names.mammals.xlsx') %>% as.data.table()
+sci_names <- readxl::read_excel(path = '../data/Scientific.names.mammals.xlsx') %>% as.data.table()
 #Make species list
 sci_names_list <- as.character(sort(unique(sci_names$SciName)))
 #Change species column names in abundance table 
@@ -303,10 +304,10 @@ plot(mva_m0.nb, which=1:3)
 
 #summ_m2 <- summary(mva_m0.nb)
 #saveRDS(summ_m2, "output/summ_model_arid_site.RDS")
-summ_m2 <- readRDS("output/summ_model_arid_site.RDS")
+summ_m2 <- readRDS("../output/summ_model_arid_site.RDS")
 #anov_m2.uni <- anova(mva_m0.nb, p.uni = "adjusted")
 #saveRDS(anov_m2.uni, "output/anova_arid_site.RDS")
-anov_m2.uni <- readRDS("output/anova_arid_site.RDS")
+anov_m2.uni <- readRDS("../output/anova_arid_site.RDS")
 print(summ_m2)
 print(anov_m2.uni)
 
@@ -322,8 +323,7 @@ coefp <- merge(coefp,as.data.table(colSums(spp_no_rare),keep.rownames = TRUE), b
 
 colnames(coefp) <- c("SciName","Intercept.coef","Distance_agri.coef","Time_diff.coef","cosin_time.coef","sin_time.coef","Site_Lotan.coef","Site_Paran.coef","Site_Zofar.coef","Site_Ein Yahav.coef","Distance_agri_time.coef","Intercept.p","Distance_agri.p","Time_diff.p","cosin_time.p","sin_time.p","Site.p","Distance_agri_time.p","species_abundance")
 
-write.csv(coefp, "coefficients_Arid_Desert.csv")
-
+write.csv(coefp, "../output/arid/coefficients_Arid_Desert.csv")
 ```
 
 # Per-species models - for Canis aureus only used one Site (Yotvata) and for Capra nubiana only two sites (Yotvata and Lotan) because of many zeros
@@ -337,9 +337,9 @@ glm.Capra.nubiana <- glm.nb(`Capra nubiana` ~ Distance_agri_rescaled * rescaled_
 coef(glm.Capra.nubiana)
 coef(mva_m0.nb)
 
-source("functions/plot_interaction_mammals.R")
+source("../functions/plot_interaction_mammals.R")
 
-plot_model_interaction(P.anal = Capra.nubiana.two.sites, m = glm.Capra.nubiana, eff2plot = "rescaled_Time.Diff", modvar2plot = "Distance_agri_rescaled", plot_points = FALSE, export_plot = TRUE, outpath = "output/arid/", fontname = "Almoni ML v5 AAA")
+plot_model_interaction(P.anal = Capra.nubiana.two.sites, m = glm.Capra.nubiana, eff2plot = "rescaled_Time.Diff", modvar2plot = "Distance_agri_rescaled", plot_points = FALSE, export_plot = TRUE, outpath = "../output", fontname = "Almoni ML v5 AAA")
 
 # capra_interact <- interact_plot(model = glm.Capra.nubiana, data=Capra.nubiana.two.sites, pred = rescaled_Time.Diff, modx = Distance_agri_rescaled, partial.residuals = F, modx.values = "plus-minus", jitter = c(0.2), point.size = 3, rug = F, point.shape = F, interval = T, colors = "Dark2") + scale_x_continuous(breaks=c(-1.233466888,-0.601840099,0.028922631,0.66054942,1.291312151), labels=c("June 2014", "June 2016", "June 2018", "June 2020", "June 2022"), name = "Time")
 
@@ -375,7 +375,7 @@ glm.Gazella.dorcas <- glm.nb(Gazella.dorcas ~ Distance_agri_rescaled * rescaled_
 coef(glm.Gazella.dorcas)
 coef(mva_m0.nb)
 
-plot_model_interaction(P.anal = env_data, m = glm.Gazella.dorcas, eff2plot = "rescaled_Time.Diff", modvar2plot = "Distance_agri_rescaled", plot_points = FALSE, export_plot = TRUE, outpath = "output/arid/", fontname = "Almoni ML v5 AAA", legend_position = "bottom")
+plot_model_interaction(P.anal = env_data, m = glm.Gazella.dorcas, eff2plot = "rescaled_Time.Diff", modvar2plot = "Distance_agri_rescaled", plot_points = FALSE, export_plot = TRUE, outpath = "../output", fontname = "Almoni ML v5 AAA", legend_position = "bottom")
 
 # interact_plot(model = glm.Gazella.dorcas, data=env_data, pred = rescaled_Time.Diff, modx = Distance_agri_rescaled, partial.residuals = F, modx.values = "plus-minus", jitter = c(0.2), point.size = 3, rug = F, point.shape = F, interval = T, colors = "Dark2") + scale_x_continuous(breaks=c(-1.233466888,-0.601840099,0.028922631,0.66054942,1.291312151), labels=c("June 2014", "June 2016", "June 2018", "June 2020", "June 2022"), name = "Time")
 
@@ -418,13 +418,13 @@ glm.Canis.aureus <- glm.nb(`Canis aureus` ~ Distance_agri_rescaled + rescaled_Ti
 #coef(glm.Canis.aureus)
 #coef(mva_m0.nb)
 
-source("functions/plot_model_effect_mammals.R")
+source("../functions/plot_model_effect_mammals.R")
 
-plot_model_effect(P.anal = Canis.aureus.only.yotvata, m = glm.Canis.aureus, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/arid/")
+plot_model_effect(P.anal = Canis.aureus.only.yotvata, m = glm.Canis.aureus, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "../output/arid/")
 
 # effect_plot(model = glm.Canis.aureus, data=Canis.aureus.only.yotvata, pred = rescaled_Time.Diff, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1") + ylim(0,5) + scale_x_continuous(breaks=c(-1.233466888,-0.601840099,0.028922631,0.66054942,1.291312151), labels=c("June 2014", "June 2016", "June 2018", "June 2020", "June 2022"), name = "Time")
 
-plot_model_effect(P.anal = Canis.aureus.only.yotvata, m = glm.Canis.aureus, eff2plot = "Distance_agri_rescaled", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/arid/")
+plot_model_effect(P.anal = Canis.aureus.only.yotvata, m = glm.Canis.aureus, eff2plot = "Distance_agri_rescaled", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "../output/arid/")
 
 # effect_plot(model = glm.Canis.aureus, data=Canis.aureus.only.yotvata, pred = Distance_agri_rescaled, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1") + scale_x_continuous(breaks=c(-0.589201946,0.245068396,1.172035444,2.099002491), labels=c("100", "1000", "2000", "3000"), name = "Distance (m)")
 # 
@@ -438,7 +438,7 @@ coef(mva_m0.nb)
 
 plot(glm.Canis.lupus)
 
-plot_model_effect(P.anal = env_data, m = glm.Canis.lupus, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/arid/")
+plot_model_effect(P.anal = env_data, m = glm.Canis.lupus, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "../output/arid/")
 
 # effect_plot(model = glm.Canis.lupus, data=env_data, pred = rescaled_Time.Diff, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1") + scale_x_continuous(breaks=c(-1.233466888,-0.601840099,0.028922631,0.66054942,1.291312151), labels=c("June 2014", "June 2016", "June 2018", "June 2020", "June 2022"), name = "Time")
 

@@ -34,9 +34,9 @@ library(emmeans)
 library(Cairo)
 
 #Load functions
-source("functions/plot_alpha_diversity_cycle_num.R")
-source("functions/plot_model_effect_mammals.R")
-source("functions/plot_interaction_mammals.R")
+source("../functions/plot_alpha_diversity_cycle_num.R")
+source("../functions/plot_model_effect_mammals.R")
+source("../functions/plot_interaction_mammals.R")
 source_url("https://raw.githubusercontent.com/ronchen1/ron_functions/d2d0bab4dc65f29e53d316ae4098d0469711905b/R/multiplot.R", sha1 = "eef55df1963ba201f57cf44513f566298756fd4f")
 
 ```
@@ -45,10 +45,10 @@ source_url("https://raw.githubusercontent.com/ronchen1/ron_functions/d2d0bab4dc6
 
 ```{r load data, include=FALSE}
 # Abundance table - all data
-all.mammal.abundances <- read.csv("Data/mammals.abundance.matrix.TG.csv", header = TRUE, sep =",") %>% as.data.table()
+all.mammal.abundances <- read.csv("../data/mammals.abundance.matrix.TG.csv", header = TRUE, sep =",") %>% as.data.table()
 
 #Species names
-sci_names <- readxl::read_excel(path = 'Data/Scientific.names.mammals.xlsx') %>% as.data.table()
+sci_names <- readxl::read_excel(path = '../data/Scientific.names.mammals.xlsx') %>% as.data.table()
 #Make species list
 sci_names_list <- as.character(sort(unique(sci_names$SciName)))
 #Change species column names in abundance table 
@@ -313,12 +313,12 @@ plot(mva_m2, which=1:3)
 
 ```{r community analysis (site) MVabund model interpretation}
 # summ_m2 <- summary(mva_m2)
-# saveRDS(summ_m2, file = "output/summ_negev_highlands_999iter.rds")
-summ_m2 <- readRDS(file = "output/summ_negev_highlands_999iter.rds")
+# saveRDS(summ_m2, file = "../output/summ_negev_highlands_999iter.rds")
+summ_m2 <- readRDS(file = "../output/summ_negev_highlands_999iter.rds")
 print(summ_m2)
 # anov_m2.uni <- anova(mva_m2, p.uni = "adjusted")
-# saveRDS(anov_m2.uni, file = "output/anova_negev_highlands_999iter.rds")
-anov_m2.uni <- readRDS(file = "output/anova_negev_highlands_999iter.rds")
+# saveRDS(anov_m2.uni, file = "../output/anova_negev_highlands_999iter.rds")
+anov_m2.uni <- readRDS(file = "../output/anova_negev_highlands_999iter.rds")
 print(anov_m2.uni)
 ```
 
@@ -333,7 +333,7 @@ coefp <- merge(coefp,as.data.table(colSums(spp_no_rare),keep.rownames = TRUE), b
 
 colnames(coefp) <- c("SciName","Intercept.coef","Distance.coef","Time_diff.coef","Site_Ezuz.coef","Site_Merhav_Am.coef","Site_Sde_Boker.coef","Site_Yeruham.coef","Distance_time.coef","Intercept.p","Distance.p","Time_diff.p","Site.p","Distance_time.p","species_abundance")
 
-write.csv(coefp, "coefficients_Negev_Highland.csv")
+write.csv(coefp, "../output/negev_highlands/coefficients_Negev_Highland.csv")
 
 # plot.Time_diff <- ggplot(coefp[order(Time_diff.coef)], aes(Time_diff.coef,as.numeric(rownames(coefp)))) +
 #  xlim (-2, 2) +
@@ -426,7 +426,7 @@ canis_aur_interact_plot <- plot_model_interaction(P.anal = env_data,
                                                   fontname = "Almoni ML v5 AAA",
                                                   fontsize=22,
                                                   pdf_width=160,
-                                                  outpath = "output/negev_highlands/",
+                                                  outpath = "../output/negev_highlands/",
                                                   legend_position = "bottom")
   
 #Testing whether trends and means are different from zero
@@ -471,9 +471,9 @@ coef(mva_m2)
 
 # Time graph - need to change y axis scale in plot_model_effect_mammals (uncomment lines 128 - 129 in function)
 
-source("functions/plot_model_effect_mammals.R")
+source("../functions/plot_model_effect_mammals.R")
 
-plot_model_effect(P.anal = env_data, m = glm.Gazella.dorcas, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/negev_highlands/") 
+plot_model_effect(P.anal = env_data, m = glm.Gazella.dorcas, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "../output/negev_highlands/") 
 
 
 dorcas_time <- effect_plot(model = glm.Gazella.dorcas, data=env_data, pred = rescaled_Time.Diff, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1") + scale_x_continuous(breaks=c(-1.233466888,-0.601840099,0.028922631,0.66054942,1.291312151), labels=c("June 2014", "June 2016", "June 2018", "June 2020", "June 2022"), name = "Time")
@@ -501,7 +501,7 @@ dorcas_time
 # 96/6
 
 
-plot_model_effect(P.anal = env_data, m = glm.Gazella.dorcas, eff2plot = "Distance_rescaled", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/negev_highlands/")
+plot_model_effect(P.anal = env_data, m = glm.Gazella.dorcas, eff2plot = "Distance_rescaled", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "../output/negev_highlands/")
 
 
 dorcas_distance <- effect_plot(model = glm.Gazella.dorcas, data=env_data, pred = Distance_rescaled, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1") + scale_x_continuous(breaks=c(-0.820445737,0.018246686,0.950127155,1.882007625), labels=c("100", "1000", "2000", "3000"), name = "Distance (m)")
@@ -535,7 +535,7 @@ coef(mva_m2)
 
 # Time graph - need to change y axis scale in plot_model_effect_mammals (uncomment lines 128 - 129 in function)
 
-plot_model_effect(P.anal = env_data, m = glm.Hyaena.hyaena, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/negev_highlands/", y_cutoff = 2, y_breaks = seq(0,2, by = 0.5))
+plot_model_effect(P.anal = env_data, m = glm.Hyaena.hyaena, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "../output/negev_highlands/", y_cutoff = 2, y_breaks = seq(0,2, by = 0.5))
 
 
 hyaena_time <- effect_plot(model = glm.Hyaena.hyaena, data=env_data, pred = rescaled_Time.Diff, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1") + scale_x_continuous(breaks=c(-1.233466888,-0.601840099,0.028922631,0.66054942,1.291312151), labels=c("June 2014", "June 2016", "June 2018", "June 2020", "June 2022"), name = "Time")
@@ -572,7 +572,7 @@ coef(mva_m2)
 
 # Time graph - need to change y axis scale in plot_model_effect_mammals (uncomment lines 128 - 129 in function)
 
-plot_model_effect(P.anal = env_data, m = glm.Hystrix.indica, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/negev_highlands/", y_cutoff = 2.7, y_breaks = seq(0,2.5, by = 0.5))
+plot_model_effect(P.anal = env_data, m = glm.Hystrix.indica, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "../output/negev_highlands/", y_cutoff = 2.7, y_breaks = seq(0,2.5, by = 0.5))
 
 
 hystrix_time <- effect_plot(model = glm.Hystrix.indica, data=env_data, pred = rescaled_Time.Diff, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1") + scale_x_continuous(breaks=c(-1.233466888,-0.601840099,0.028922631,0.66054942,1.291312151), labels=c("June 2014", "June 2016", "June 2018", "June 2020", "June 2022"), name = "Time")
@@ -599,7 +599,7 @@ hystrix_time
 # (158/50 - 1) *100
 # 158/50
 
-plot_model_effect(P.anal = env_data, m = glm.Hystrix.indica, eff2plot = "Distance_rescaled", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/negev_highlands/")
+plot_model_effect(P.anal = env_data, m = glm.Hystrix.indica, eff2plot = "Distance_rescaled", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "../output/negev_highlands/")
 
 hystrix_distance<- effect_plot(model = glm.Hystrix.indica, data=env_data, pred = Distance_rescaled, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1") + scale_x_continuous(breaks=c(-0.820445737,0.018246686,0.950127155,1.882007625), labels=c("100", "1000", "2000", "3000"), name = "Distance (m)")
 
@@ -630,7 +630,7 @@ coef(glm.Lepus.capensis)
 coef(mva_m2)
 
 
-plot_model_effect(P.anal = env_data, m = glm.Lepus.capensis, eff2plot = "Distance_rescaled", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/negev_highlands/")
+plot_model_effect(P.anal = env_data, m = glm.Lepus.capensis, eff2plot = "Distance_rescaled", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "../output/negev_highlands/")
   
 lepus_distance <- effect_plot(model = glm.Lepus.capensis, data=env_data, pred = Distance_rescaled, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1") + scale_x_continuous(breaks=c(-0.820445737,0.018246686,0.950127155,1.882007625), labels=c("100", "1000", "2000", "3000"), name = "Distance (m)")
 
@@ -662,7 +662,7 @@ print(summary(glm.Vulpes.vulpes))
 coef(glm.Vulpes.vulpes)
 coef(mva_m2)
 
-plot_model_effect(P.anal = env_data, m = glm.Vulpes.vulpes, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/negev_highlands/")
+plot_model_effect(P.anal = env_data, m = glm.Vulpes.vulpes, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "../output/negev_highlands/")
 
 vulpes_time <- effect_plot(model = glm.Vulpes.vulpes, data=env_data, pred = rescaled_Time.Diff, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1") + scale_x_continuous(breaks=c(-1.233466888,-0.601840099,0.028922631,0.66054942,1.291312151), labels=c("June 2014", "June 2016", "June 2018", "June 2020", "June 2022"), name = "Time")
 
@@ -692,7 +692,7 @@ vulpes_time
 # (141/101 - 1) *100
 # 141/101
 
-vulpes_distance <- plot_model_effect(P.anal = env_data, m = glm.Vulpes.vulpes, eff2plot = "Distance_rescaled", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/negev_highlands/")
+vulpes_distance <- plot_model_effect(P.anal = env_data, m = glm.Vulpes.vulpes, eff2plot = "Distance_rescaled", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "../output/negev_highlands/")
 
 vulpes_distance <- effect_plot(model = glm.Vulpes.vulpes, data=env_data, pred = Distance_rescaled, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1") + scale_x_continuous(breaks=c(-0.820445737,0.018246686,0.950127155,1.882007625), labels=c("100", "1000", "2000", "3000"), name = "Distance (m)")
 

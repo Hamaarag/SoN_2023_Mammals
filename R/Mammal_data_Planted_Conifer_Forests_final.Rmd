@@ -35,9 +35,9 @@ library(emmeans)
 library(extrafont)
 
 #Load functions
-source("functions/plot_alpha_diversity_cycle_num.R")
-source("functions/plot_model_effect_mammals_Maquis_and_Forest.R")
-source("functions/plot_interaction_mammals_Maquis_and_Forest.R")
+source("../functions/plot_alpha_diversity_cycle_num.R")
+source("../functions/plot_model_effect_mammals_Maquis_and_Forest.R")
+source("../functions/plot_interaction_mammals_Maquis_and_Forest.R")
 source_url("https://raw.githubusercontent.com/ronchen1/ron_functions/d2d0bab4dc65f29e53d316ae4098d0469711905b/R/multiplot.R", sha1 = "eef55df1963ba201f57cf44513f566298756fd4f")
 
 ```
@@ -46,11 +46,11 @@ source_url("https://raw.githubusercontent.com/ronchen1/ron_functions/d2d0bab4dc6
 
 ```{r load data, include=FALSE}
 # Abundance table - all data
-all.mammal.abundances <- read.csv("Data/mammals.abundance.matrix.TG.csv", header = TRUE, sep =",") %>% as.data.table()
+all.mammal.abundances <- read.csv("../data/mammals.abundance.matrix.TG.csv", header = TRUE, sep =",") %>% as.data.table()
 
 
 #Species names
-sci_names <- readxl::read_excel(path = 'Data/Scientific.names.mammals.xlsx') %>% as.data.table()
+sci_names <- readxl::read_excel(path = '../data/Scientific.names.mammals.xlsx') %>% as.data.table()
 #Make species list
 sci_names_list <- as.character(sort(unique(sci_names$SciName)))
 #Change species column names in abundance table 
@@ -319,11 +319,11 @@ plot(mva_m2, which=1:3)
 ```{r community analysis (site) MVabund model interpretation}
 
 # summ_m2 <- summary(mva_m2)
-# saveRDS(summ_m2, "output/summ_model_forest_subunit1.RDS")
-summ_m2 <- readRDS("output/summ_model_forest_subunit1.RDS")
+# saveRDS(summ_m2, "../output/summ_model_forest_subunit1.RDS")
+summ_m2 <- readRDS("../output/summ_model_forest_subunit1.RDS")
 # anov_m2.uni <- anova(mva_m2, p.uni = "adjusted")
-# saveRDS(anov_m2.uni, "output/anova_forest_subunit1.RDS")
-anov_m2.uni <- readRDS("output/anova_forest_subunit1.RDS")
+# saveRDS(anov_m2.uni, "../output/anova_forest_subunit1.RDS")
+anov_m2.uni <- readRDS("../output/anova_forest_subunit1.RDS")
 print(summ_m2)
 print(anov_m2.uni)
 
@@ -341,11 +341,11 @@ plot(mva_m2, which=1:3)
 ```
 ```{r}
 # summ_m2 <- summary(mva_m2)
-# saveRDS(summ_m2, "output/summ_model_forest_subunit2.RDS")
-summ_m2 <- readRDS("output/summ_model_forest_subunit2.RDS")
+# saveRDS(summ_m2, "../output/summ_model_forest_subunit2.RDS")
+summ_m2 <- readRDS("../output/summ_model_forest_subunit2.RDS")
 # anov_m2.uni <- anova(mva_m2, p.uni = "adjusted")
-# saveRDS(anov_m2.uni, "output/anova_forest_subunit2.RDS")
-anov_m2.uni <- readRDS("output/anova_forest_subunit2.RDS")
+# saveRDS(anov_m2.uni, "../output/anova_forest_subunit2.RDS")
+anov_m2.uni <- readRDS("../output/anova_forest_subunit2.RDS")
 print(summ_m2)
 print(anov_m2.uni)
 ```
@@ -359,7 +359,7 @@ coefp <- merge(coefp,as.data.table(colSums(spp_no_rare),keep.rownames = TRUE), b
 
 colnames(coefp) <- c("SciName","Intercept.coef","Cosin_time.coef","Galilee.coef","Judea.coef","Intercept.p","Cosin_time.p","Subunit.p","Species_abundance")
 
-write.csv(coefp, "coefficients_Subunit_Planted_Conifer_Forest.csv")
+write.csv(coefp, "../output/forest/coefficients_Subunit_Planted_Conifer_Forest.csv")
 
 ```
 
@@ -372,7 +372,7 @@ Canis.lupus <- spp_no_rare[env_data$Subunit!="Carmel","Canis.lupus"]
 glm.Canis.lupus <- glm.nb(formula = Canis.lupus ~ cosinus_Monitoring.Time.Diff  + Subunit, data = env_data[Subunit!="Carmel"])
 summary(glm.Canis.lupus)
 
-plot_model_effect(P.anal = env_data[Subunit!="Carmel"][, Canis.lupus:=as.numeric(Canis.lupus)], m = glm.Canis.lupus, eff2plot = "Subunit", plot_points=TRUE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/conifer_forest/", y_cutoff = 4)
+plot_model_effect(P.anal = env_data[Subunit!="Carmel"][, Canis.lupus:=as.numeric(Canis.lupus)], m = glm.Canis.lupus, eff2plot = "Subunit", plot_points=TRUE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "../output/forest/", y_cutoff = 4)
 ```
 
 Compute predicted average difference in C. lupus abundance between Judea and Galilee based on model:
@@ -399,7 +399,7 @@ coef(glm.Gazella.gazella)
 coef(mva_m2)
 print(sum(Gazella.gazella))
 
-plot_model_effect(P.anal = env_data, m = glm.Gazella.gazella, eff2plot = "Subunit", plot_points=TRUE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/conifer_forest/")
+plot_model_effect(P.anal = env_data, m = glm.Gazella.gazella, eff2plot = "Subunit", plot_points=TRUE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "../output/forest/")
 
 #Compare spatial trends among subunits
 pairwise_subunit <- emmeans(object = glm.Gazella.gazella, ~ Subunit)
@@ -435,7 +435,7 @@ glm.Hystrix.indica <- glm.nb(formula = Hystrix.indica ~ cosinus_Monitoring.Time.
 coef(glm.Hystrix.indica)
 coef(mva_m2)
 
-plot_model_effect(P.anal = env_data, m = glm.Hystrix.indica, eff2plot = "Subunit", plot_points=TRUE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/conifer_forest/")
+plot_model_effect(P.anal = env_data, m = glm.Hystrix.indica, eff2plot = "Subunit", plot_points=TRUE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "../output/forest/")
 
 #Compare spatial trends among subunits
 pairwise_subunit <- emmeans(object = glm.Hystrix.indica, ~ Subunit)
@@ -483,7 +483,7 @@ glm.Sus.scrofa <- glm.nb(formula = Sus.scrofa ~ cosinus_Monitoring.Time.Diff  + 
 coef(glm.Sus.scrofa)
 coef(mva_m2)
 
-plot_model_effect(P.anal = env_data, m = glm.Sus.scrofa, eff2plot = "Subunit", plot_points=TRUE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/conifer_forest/")
+plot_model_effect(P.anal = env_data, m = glm.Sus.scrofa, eff2plot = "Subunit", plot_points=TRUE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "../output/forest/")
 
 #Compare spatial trends among subunits
 pairwise_subunit <- emmeans(object = glm.Sus.scrofa, ~ Subunit)
@@ -514,12 +514,12 @@ Final model includes cosin time, and the interaction between subunit and time
 
 ```{r community analysis (Subunit) MVabund model interpretation}
 # summ_m2 <- summary(mva_m0.nb)
-# saveRDS(summ_m2, "output/summ_model_forest_interact.RDS")
-summ_m2 <- readRDS("output/summ_model_forest_interact.RDS")
+# saveRDS(summ_m2, "../output/summ_model_forest_interact.RDS")
+summ_m2 <- readRDS("../output/summ_model_forest_interact.RDS")
 print(summ_m2)
 # anov_m2.uni <- anova(mva_m0.nb, p.uni = "adjusted")
-# saveRDS(anov_m2.uni, "output/anova_forest_interact.RDS")
-anov_m2.uni <- readRDS("output/anova_forest_interact.RDS")
+# saveRDS(anov_m2.uni, "../output/anova_forest_interact.RDS")
+anov_m2.uni <- readRDS("../output/anova_forest_interact.RDS")
 print(anov_m2.uni)
 ```
 
@@ -532,7 +532,7 @@ coefp <- merge(coefp,as.data.table(colSums(spp_no_rare),keep.rownames = TRUE), b
 
 colnames(coefp) <- c("SciName","Intercept.coef","Galilee.coef","Judea.coef","time_diff","Cosin_time.coef","Galilee_time.coef","Judea_time.coef","Intercept.p","Subunit.p","Time_diff.p","Cosin.p","Subunit_time.p","Species_abundance")
 
-write.csv(coefp, "coefficients_Subunit_interaction_Planted_Conifer_Forest.csv")
+write.csv(coefp, "..output/forest/coefficients_Subunit_interaction_Planted_Conifer_Forest.csv")
 ```
 
 
@@ -546,7 +546,7 @@ coef(mva_m0.nb)
 
 interact_plot(glm.Sus.scrofa, pred = rescaled_Time.Diff, modx = Subunit, modx.values = NULL, partial.residuals = F, jitter = c(0.2), point.size = 3, rug = F, point.shape = F, interval = T, colors = "Dark2")
 
-plot_model_interaction(P.anal = env_data, m = glm.Sus.scrofa, eff2plot = "rescaled_Time.Diff", modvar2plot = "Subunit", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/conifer_forest/", legend_position = "bottom")
+plot_model_interaction(P.anal = env_data, m = glm.Sus.scrofa, eff2plot = "rescaled_Time.Diff", modvar2plot = "Subunit", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "../output/forest/", legend_position = "bottom")
 ```
 
 Test whether temporal trend is different from zero
@@ -607,7 +607,7 @@ coef(mva_m0.nb)
 
 # interact_plot(glm.Canis.aureus, pred = rescaled_Time.Diff, modx = Subunit, modx.values = NULL, partial.residuals = F, jitter = c(0.2), point.size = 3, rug = F, point.shape = F, interval = T, colors = "Dark2")
 
-plot_model_interaction(P.anal = env_data, m = glm.Canis.aureus, eff2plot = "rescaled_Time.Diff", modvar2plot = "Subunit", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/conifer_forest/", legend_position = "bottom")
+plot_model_interaction(P.anal = env_data, m = glm.Canis.aureus, eff2plot = "rescaled_Time.Diff", modvar2plot = "Subunit", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "../output/forest/", legend_position = "bottom")
 ```
 
 Test whether temporal trend is different from zero

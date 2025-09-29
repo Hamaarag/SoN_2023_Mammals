@@ -1,0 +1,441 @@
+---
+title: "Mammal data - Hearbaceus and dwarf shrub vegetation"
+author: "Ella Pasternak and Talia Gabay"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+#knitr::opts_chunk$set(dev = "cairo_pdf", dev.args=list(cairo_pdf = list(family='Arial')))
+
+#Load packages
+library(devtools)
+library(rlang)
+library(ggplot2)
+library(data.table)
+library(dplyr)
+library(mvabund)
+library(kableExtra)
+library(lme4)
+library(MASS)
+library(vegan)
+library(jtools)
+library(interactions)
+library(car)
+library(ecoCopula)
+library(chron)
+library(data.table)
+library(readxl)
+library(performance)
+library(glmmTMB) 
+library(emmeans)
+library(Cairo)
+library(extrafont)
+library(knitr)
+library(chron)
+
+#Load functions
+source("../functions/plot_model_effect_mammals_batha.R")
+source("../functions/plot_interaction_mammals_batha.R")
+
+```
+
+
+```{r load data, include=FALSE}
+#Batha data - load Rdata file
+load("../data/Herb_analysis_2023.RData")
+
+#Load table for species richness
+all.data.mammals.final.final.for.richness <- read.csv("../data/all.data.mammals.final.final.for.richness.csv", header = TRUE, sep =",") %>% as.data.table()
+
+```
+
+
+```{r data exploration}
+#find non- regular values with abundance:
+D <- Herb_abu %>% as.data.table()
+D$TotAb <- rowSums(D[,1:7])
+D$TotRi <- rowSums(D[,1:7]>0)
+View(D)
+
+my_cols <- c("blue", "red")
+dotchart(D$TotAb, ylab = "Site",
+         groups = env_data.herb$Site, 
+         # color = my_cols[sp.richness.Maquis.per.cam$Settlements],
+         cex = 0.9,  pch = 1, xlab = "abundance")
+
+
+my_cols <- c("blue", "red","darkgreen","brown","purple")
+dotchart(D$TotAb, ylab = "Campaign",gcolor = my_cols,
+         groups = env_data.herb$Project.ID, 
+         color = my_cols[env_data.herb$Project.ID],
+         cex = 0.9,  pch = 1, xlab = "abundance")
+
+Da <- Herb.mammals.abundance.matrix %>% as.data.table()
+Da$TotAb <- rowSums(Da[,18:24])
+
+
+kable(summary(Da[,.(TotAb,Project.ID, Settlements, Site,rescaled_Time.Diff_new, cosinus_Monitoring.Time.Diff, sinus_Monitoring.Time.Diff,Transect, Distance, Distance.Agri)]),"pipe")
+
+pairs(Da[,lapply(X = .SD,FUN = as.numeric),.SDcols=c("Settlements","Project.ID","Site","rescaled_Time.Diff_new", "sinus_Monitoring.Time.Diff", "cosinus_Monitoring.Time.Diff", "Transect", "Distance","Distance.Agri")])
+
+kable(cor(Da[,lapply(X = .SD,FUN = as.numeric),.SDcols=c("Settlements","Project.ID","Site","rescaled_Time.Diff_new", "sinus_Monitoring.Time.Diff", "cosinus_Monitoring.Time.Diff", "Transect", "Distance","Distance.Agri")]),"pipe")
+
+```
+
+#seems that Project.ID and rescaled.time.diff has strong correaltion, obviously.
+#Site and transect has strong correlation
+
+#the distance has some correlation with site (-0.7), and transect (-0.61/-0.68), and with distance.Agri (-0.82).
+#distance.agri has correlation with site (-0.82) and transect (-0.79/-0.82) and with distance (0.75).
+#it might be problematic to put site and distance together in the model, because of the high correlation.
+
+```{r data preparation}
+#Make Site as factor
+env_data.herb <- env_data.herb[,Site:=factor(Site)]
+
+#Factor levels
+unique(env_data.herb$Site)
+
+```
+
+#### Community analysis using package MVabund
+
+
+```{r Compare model distributions}
+#Compare manyglm model distributions
+mva_herb_poiss <- manyglm(Herb_spp~ Distance_rescaled*rescaled_Time.Diff_new+Site + 
+                      sinus_Monitoring.Time.Diff+cosinus_Monitoring.Time.Diff , family = "poisson", data=env_data.herb)
+
+plot.manyglm(mva_herb_poiss, which = 1:3)
+
+mva_herb_nb <- manyglm(Herb_spp~ Distance_rescaled*rescaled_Time.Diff_new+Site + 
+                            sinus_Monitoring.Time.Diff+cosinus_Monitoring.Time.Diff , family = "negative.binomial", data=env_data.herb)
+
+plot.manyglm(mva_herb_nb, which = 1:3)
+
+```
+
+#mva_herb_nb looks much better.
+
+```{r model selection}
+#model selection:
+drop1(mva_herb_nb)
+```
+
+#nothing has to be dropped. 
+
+#the final model is mva_herb_nb
+
+```{r final model}
+anov_mva_herb_nb <- anova(mva_herb_nb, p.uni = "adjusted")
+print(anov_mva_herb_nb)
+
+#graph:
+coefp_Herb <- merge(data.table(t(coef(mva_herb_nb)),keep.rownames=TRUE), data.table(t(anov_mva_herb_nb$uni.p), keep.rownames = TRUE), by = "rn") # coefficients are exponentiated because the link function used for poisson is log -> above 1 is positive and below 1 is negative
+
+# add total species abundance
+coefp_Herb <- merge(coefp_Herb,as.data.table(colSums(Herb_spp),keep.rownames = TRUE), by.x = "rn", by.y = "V1")
+
+colnames(coefp_Herb)
+
+colnames(coefp_Herb) <- c("SciName","Intercept.coef","Distance.coef","Time_diff.coef","Site_Karei.Deshe.coef","Site_Natur.coef","Site_Shaal.coef","Site_Yavneel.coef", "sinus_monitoring.time.coef","cosinus_monitoring.time.coef","Distance_Time.coef", "Intercept.p","Distance.p", "Time_diff.p","Site.p", "sin_time.p","Cosin_time.p","Distance_Time.p" ,"species_abundance")
+
+
+#add hebrew name
+A <- as.data.table(all.data.mammals.final.final.without.rare)
+sci_heb <- A[,.(Species_Heb=unique(Species_Heb)), keyby=Species]
+sci_heb[,Species:=make.names(Species)]
+coefp_Herb <- merge(coefp_Herb, sci_heb, by.x = "SciName", by.y = "Species")
+
+write.csv(coefp_Herb, "../output/batha/coefficients_Herb.csv")
+```
+
+
+#only golden jackal, grey wolf and red fox are affected by the parameters in the model.
+
+
+
+```{r community analysis - per species models - Jackal}
+
+####Canis aureus####
+
+golden.jackal.herb <- Herb_abundmat[,c(1:18,25:26)]
+
+names(golden.jackal.herb)[names(golden.jackal.herb) == 'Canis aureus'] <- 'Canis.aureus'
+
+#only distance is significant, so I run model without intercation:
+
+
+glm.golden.jackal.herb <- glm.nb(Canis.aureus ~ Distance_rescaled+rescaled_Time.Diff_new+Site + 
+                                   sinus_Monitoring.Time.Diff+cosinus_Monitoring.Time.Diff, data = golden.jackal.herb, maxit = 999)
+
+
+summary(glm.golden.jackal.herb)
+
+
+#no dots:
+effect_plot_g.Jackal.herb <- effect_plot(model = glm.golden.jackal.herb, data=golden.jackal.herb, pred = Distance_rescaled, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1",line.colors = "black") 
+effect_plot_g.Jackal.herb+ylim(0,200)
+
+my_cols <- c("blue", "red")
+dotchart(golden.jackal.herb$Canis.aureus, ylab = "Site",
+         groups = golden.jackal.herb$Site, 
+         # color = my_cols[sp.richness.Maquis.per.cam$Settlements],
+         cex = 0.9,  pch = 1, xlab = "abundance")
+
+#gcolor = my_cols,
+
+
+my_cols <- c("blue", "red","darkgreen","brown","purple")
+dotchart(golden.jackal.herb$Canis.aureus, ylab = "Campaign",gcolor = my_cols,
+         groups = golden.jackal.herb$Project.ID, 
+         color = my_cols[golden.jackal.herb$Project.ID],
+         cex = 0.9,  pch = 1, xlab = "abundance")
+
+#find how many jackals are in each site and each campaign:
+jackal <- as.data.table(golden.jackal.herb)
+jackal.counts <- jackal[,.(total.count = sum(Canis.aureus)), keyby=c("Project.ID","Site")]
+
+
+p <- ggplot(golden.jackal.herb, aes(x=Proje, y=Canis.aureus))+ geom_point(aes(color=Site),size=5)+
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=14,face="bold"))
+
+write.csv(jackal.counts, "../output/batha/jackal.counts_Herb.csv")
+
+#there are some sites with less jackal obs, but not completely zeros. So, I do not know if there is
+#justification to remove sites. 
+
+p7 <- ggplot(golden.jackal.herb, aes(x=Project.ID, y=Canis.aureus))+ geom_point(aes(color=Site),size=5)+
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=14,face="bold"))
+# scale_y_continuous(limits = c(0,100))
+
+p7
+
+p5 <- ggplot(golden.jackal.herb, aes(fill=Site,y=Canis.aureus,x=Project.ID))+ geom_bar(position="dodge", stat="identity")+
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=14,face="bold"))
+# scale_y_continuous(limits = c(0,100))
+
+p5
+```
+
+
+```{r community analysis (subunit) - per species models - wolf}
+
+rare.species.wolf <- Rare.sp_by.two.conditions[Rare.sp_by.two.conditions$Species=="Canis lupus",]
+
+
+write.csv(rare.species.wolf, "../output/batha/rare.species.wolf.csv")
+
+#grey wolf:
+wolf.herb <- Herb_abundmat[,c(1:17,19,25:26)]
+
+unique(wolf.herb$Site)
+
+names(wolf.herb)[names(wolf.herb) == 'Canis lupus'] <- 'Canis.lupus'
+
+#only the interaction between distance and time is significant:
+
+
+glm.wolf.herb <- glm.nb(Canis.lupus ~ Distance_rescaled*rescaled_Time.Diff_new+Site + 
+                                   sinus_Monitoring.Time.Diff+cosinus_Monitoring.Time.Diff, data = wolf.herb, maxit = 999)
+
+
+summary(glm.wolf.herb)
+
+#the estimate numbers are really low.
+
+my_cols <- c("blue", "red")
+dotchart(wolf.herb$Canis.lupus, ylab = "Site",
+         groups = wolf.herb$Site, 
+         # color = my_cols[sp.richness.Maquis.per.cam$Settlements],
+         cex = 0.9,  pch = 1, xlab = "abundance")
+
+#gcolor = my_cols,
+
+
+my_cols <- c("blue", "red","darkgreen","brown","purple")
+dotchart(wolf.herb$Canis.lupus, ylab = "Campaign",gcolor = my_cols,
+         groups = wolf.herb$Project.ID, 
+         color = my_cols[wolf.herb$Project.ID],
+         cex = 0.9,  pch = 1, xlab = "abundance")
+
+#remove Karei Deshe:
+wolf.herb_no.KD <- wolf.herb[!Site %in% "Karei Deshe",]
+
+wolf.herb_no.KD <- wolf.herb_no.KD[,Site:=factor(Site)]
+
+unique(wolf.herb_no.KD$Site)
+
+glm.wolf.herb2 <- glm.nb(Canis.lupus ~ Distance_rescaled*rescaled_Time.Diff_new+Site + 
+                          sinus_Monitoring.Time.Diff+cosinus_Monitoring.Time.Diff, data = wolf.herb_no.KD, maxit = 999)
+
+
+summary(glm.wolf.herb2)
+
+#the estimates are better.
+
+wolf_interaction <- interact_plot(model = glm.wolf.herb2, data=wolf.herb_no.KD, pred = rescaled_Time.Diff_new, modx =Distance_rescaled , partial.residuals = F, jitter = c(0.2), point.size = 3, rug = F, point.shape = F, interval = T,modx.values = "plus-minus")
+wolf_interaction 
+#no interval:
+interact_plot(model = glm.wolf.herb2, data=wolf.herb_no.KD, pred = rescaled_Time.Diff_new, modx =Distance_rescaled , partial.residuals = F, jitter = c(0.2), point.size = 3, rug = F, point.shape = F, interval = F,modx.values = "plus-minus")
+
+#for wolf- try to remove Karei Deshe and Natur too:
+
+wolf.herb_thin <- subset(wolf.herb, Site!="Karei Deshe" & Site!="Natur")
+
+wolf.herb_thin <- as.data.table(wolf.herb_thin)
+
+wolf.herb_thin <- wolf.herb_thin[,Site:=factor(Site)]
+
+unique(wolf.herb_thin$Site)
+
+glm.wolf.herb3 <- glm.nb(Canis.lupus ~ Distance_rescaled*rescaled_Time.Diff_new+Site + 
+                           sinus_Monitoring.Time.Diff+cosinus_Monitoring.Time.Diff, data = wolf.herb_thin, maxit = 999)
+
+summary(glm.wolf.herb3)
+
+wolf.herb_thin$Site <- relevel(wolf.herb_thin$Site,ref="Yavneel")
+
+
+interact_plot(model = glm.wolf.herb3, data=wolf.herb_thin, pred = rescaled_Time.Diff_new, modx =Distance_rescaled , partial.residuals = F, jitter = c(0.2), point.size = 3, rug = F, point.shape = F, interval = T,modx.values = "plus-minus")
+
+#no interval:
+wolf_inetraction_plot <- interact_plot(model = glm.wolf.herb3, data=wolf.herb_thin, pred = rescaled_Time.Diff_new, modx =Distance_rescaled , partial.residuals = F, jitter = c(0.2), point.size = 3, rug = F, point.shape = F, interval = F,modx.values = "plus-minus")
+
+unique(wolf.herb$rescaled_Time.Diff_new)
+```
+
+
+
+
+
+```{r community analysis - per species models - fox}
+fox.herb <- Herb_abundmat[,c(1:17,24:26)]
+
+unique(fox.herb$Site)
+
+names(fox.herb)[names(fox.herb) == 'Vulpes vulpes'] <- 'Vulpes.vulpes'
+
+#the time and distance are significant separately, so model without interaction:
+
+glm.fox.herb <- glm.nb(Vulpes.vulpes ~ Distance_rescaled+rescaled_Time.Diff_new+Site + 
+                          sinus_Monitoring.Time.Diff+cosinus_Monitoring.Time.Diff, data = fox.herb, maxit = 999)
+
+summary(glm.fox.herb)
+
+#for distance:
+effect_plot_fox.herb <- effect_plot(model = glm.fox.herb, data=fox.herb, 
+    pred = Distance_rescaled, interval = T, plot.points = F, jitter = c(0.1,0), 
+    point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1",line.colors = "black") 
+effect_plot_fox.herb+ylim(0,40)
+
+
+#time:
+effect_plot_fox.herb2 <- effect_plot(model = glm.fox.herb, data=fox.herb, pred = rescaled_Time.Diff_new, interval = T, plot.points = T, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1",line.colors = "black") 
+effect_plot_fox.herb+ylim(0,40)
+
+#no dots:
+effect_plot_fox.herb2 <- effect_plot(model = glm.fox.herb, data=fox.herb, pred = rescaled_Time.Diff_new, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1",line.colors = "black") 
+
+effect_plot_fox.herb2 <- effect_plot(model = glm.fox.herb, data=fox.herb, pred = rescaled_Time.Diff_new, interval = F, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1",line.colors = "black") 
+
+effect_plot(model = glm.fox.herb, data=fox.herb, pred = rescaled_Time.Diff_new, interval = T, plot.points = T, jitter = c(0.1,0), 
+            partial.residuals = F, colors = "Qual1") + scale_x_continuous(breaks=c(-1.233466888,-0.601840099,0.028922631,0.66054942,1.291312151), 
+                                                                                       labels=c("June 2014", "June 2016", "June 2018", "June 2020", "June 2022"), name = "Time")+
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=14,face="bold"))+
+  ylab("Red fox abundance")
+```
+
+
+```{r community analysis run model without wolf}
+
+#run the mvabund without wolf (37 indvs and 14 cameras):
+
+Herb_abu_no.wolf <- Herb_abundmat[,c(18,20:24)]
+Herb_spp2 <- mvabund(Herb_abu_no.wolf)
+
+mva_herb_nb_no.wolf <- manyglm(Herb_spp2~ Distance_rescaled*rescaled_Time.Diff_new+Site + 
+                         sinus_Monitoring.Time.Diff+cosinus_Monitoring.Time.Diff , family = "negative.binomial", data=env_data.herb)
+
+plot.manyglm(mva_herb_nb_no.wolf, which = 1:3)
+
+#model selection:
+
+drop1(mva_herb_nb_no.wolf)
+
+ 
+#nothing has to be dropped. 
+
+#the final model is mva_herb_nb_no.wolf
+
+anov_mva_herb_nb_no.wolf <- anova(mva_herb_nb_no.wolf, p.uni = "adjusted")
+print(anov_mva_herb_nb_no.wolf)
+
+coefp_Herb_no.wolf <- merge(data.table(t(coef(mva_herb_nb_no.wolf)),keep.rownames=TRUE), data.table(t(anov_mva_herb_nb_no.wolf$uni.p), keep.rownames = TRUE), by = "rn") # coefficients are exponentiated because the link function used for poisson is log -> above 1 is positive and below 1 is negative
+
+# add total species abundance
+coefp_Herb_no.wolf <- merge(coefp_Herb_no.wolf,as.data.table(colSums(Herb_spp2),keep.rownames = TRUE), by.x = "rn", by.y = "V1")
+
+colnames(coefp_Herb_no.wolf)
+
+colnames(coefp_Herb_no.wolf) <- c("SciName","Intercept.coef","Distance.coef","Time_diff.coef","Site_Karei.Deshe.coef","Site_Natur.coef","Site_Shaal.coef","Site_Yavneel.coef", "sinus_monitoring.time.coef","cosinus_monitoring.time.coef","Distance_Time.coef", "Intercept.p","Distance.p", "Time_diff.p","Site.p", "sin_time.p","Cosin_time.p","Distance_Time.p" ,"species_abundance")
+
+write.csv(coefp_Herb_no.wolf, "../output/batha/coefficients_Herb_no.wolf.csv")
+
+Herb <- all.data.mammals.final.final.for.richness[all.data.mammals.final.final.for.richness$Unit=="Herbaceous and Dwarf Shrub Vegetation",]
+
+unique(Herb$Species)
+
+#to get the numbers of obs and inds:
+
+Herb.data <- all.data.mammals.final.final.without.rare[all.data.mammals.final.final.without.rare$Unit=="Herbaceous and Dwarf Shrub Vegetation",]
+
+unique(Herb.data$Species)
+```
+
+
+
+```{r community analysis final model without wolf and hyena}
+#remove canis lupus and hyena hyena:
+
+library(dplyr)
+Herb.data.no.rare <- Herb.data %>% filter(!Species %in% c('Canis lupus','Hyaena hyaena'))
+unique(Herb.data.no.rare$Species)
+
+sum(Herb.data.no.rare$Sum)
+```
+
+
+```{r Export Hebrew plots to PDF}
+# The plot:
+
+effect_plot(model = glm.fox.herb, data=fox.herb, pred = rescaled_Time.Diff_new, interval = T, plot.points = T, jitter = c(0.1,0), 
+            partial.residuals = F, colors = "Qual1",point.size = 5,line.thickness = 2,point.alpha = 0.25,line.colors = "black") + scale_x_continuous(breaks=c(-1.233466888,-0.601840099,0.028922631,0.66054942,1.291312151), 
+     labels=c("2014", "2016", "2018", "2020", "2022"))+
+  theme(axis.text=element_text(size=18),axis.title=element_text(size=22,face="bold"))+
+  ylab("עפש")+xlab("ןמז")
+
+
+
+#Red fox plot using function
+
+
+redfox_shrub <- effect_plot(model = glm.fox.herb, data=fox.herb, pred = rescaled_Time.Diff_new, interval = T, plot.points = T, jitter = c(0.1,0), 
+                            partial.residuals = F, colors = "Qual1",point.size = 5,line.thickness = 2,point.alpha = 0.25,line.colors = "black") 
+                                                                                                                                                                   
+effplot_vulpes_time <- plot_model_effect(P.anal = fox.herb, 
+                               m = glm.fox.herb, 
+                               eff2plot = "rescaled_Time.Diff_new", 
+                               plot_points=FALSE, plot_residuals=FALSE, 
+                               export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA",
+                               fontsize=22, pdf_width=160, outpath = "../output/batha/")
+```
+
+### Session information
+
+```{r}
+session_info()
+```

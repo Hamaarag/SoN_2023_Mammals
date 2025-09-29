@@ -32,9 +32,9 @@ library(emmeans)
 library(Cairo)
 
 #Load functions
-source("functions/plot_alpha_diversity_cycle_num.R")
-source("functions/plot_model_effect_mammals.R")
-source("functions/plot_interaction_mammals.R")
+source("../functions/plot_alpha_diversity_cycle_num.R")
+source("../functions/plot_model_effect_mammals.R")
+source("../functions/plot_interaction_mammals.R")
 source_url("https://raw.githubusercontent.com/ronchen1/ron_functions/d2d0bab4dc65f29e53d316ae4098d0469711905b/R/multiplot.R", sha1 = "eef55df1963ba201f57cf44513f566298756fd4f")
 
 
@@ -44,13 +44,13 @@ source_url("https://raw.githubusercontent.com/ronchen1/ron_functions/d2d0bab4dc6
 
 ```{r load data, include=FALSE}
 # Abundance table - all data
-all.mammal.abundances <- read.csv("Data/mammals.abundance.matrix.TG.csv", header = TRUE, sep =",") %>% as.data.table()
+all.mammal.abundances <- read.csv("../data/mammals.abundance.matrix.TG.csv", header = TRUE, sep =",") %>% as.data.table()
 
 #Incidence table - all data
 #all.mammal.incidences <- read.csv("C:/Users/Talia Gabay/OneDrive - #post.bgu.ac.il/Hamaarag_Mammals_analysis_Talia_Copy/Data/mammals.indcidence.matrix.csv", header = #TRUE, sep =",") %>% as.data.table()
 
 #Species names
-sci_names <- readxl::read_excel(path = 'Data/Scientific.names.mammals.xlsx') %>% as.data.table()
+sci_names <- readxl::read_excel(path = '../data/Scientific.names.mammals.xlsx') %>% as.data.table()
 #Make species list
 sci_names_list <- as.character(sort(unique(sci_names$SciName)))
 #Change species column names in abundance table 
@@ -110,7 +110,7 @@ plot_alpha_diversity(P, x_val = "Settlements", y_val = "richness", ylab_val = "r
 col_names <- c("Cycle_number",  "Deployment.id_new",	"Unit",	"Subunit",	"Site", "Settlements",	"Distance_rescaled",	"Lon",	"Lat", "year", "rescaled_Time.Diff", "sinus_Monitoring.Time.Diff", "cosinus_Monitoring.Time.Diff", "Transect", "Transect_with_date")
 
 abu_by_spp.MDtransitionalzone <- all.mammal.abundances[grepl("Mediterranean Desert Transition Zone",Unit),]
-write.csv(abu_by_spp.MDtransitionalzone, "data_table_MD_trans_zone.csv")
+write.csv(abu_by_spp.MDtransitionalzone, "../output/sfar/data_table_MD_trans_zone.csv")
 spp <- abu_by_spp.MDtransitionalzone[,27:40]
 #spp <- abu_by_spp.MDtransitionalzone[,25:38]
 # filter out species with zero counts 
@@ -318,12 +318,12 @@ plot(mva_m2, which=1:3)
 
 ```{r community analysis (site) MVabund model interpretation}
 # summ_m2 <- summary(mva_m2)
-# saveRDS(summ_m2, file = "output/summ_md_zone_999iter.rds")
-summ_m2 <- readRDS(file = "output/summ_md_zone_999iter.rds")
+# saveRDS(summ_m2, file = "../output/summ_md_zone_999iter.rds")
+summ_m2 <- readRDS(file = "../output/summ_md_zone_999iter.rds")
 print(summ_m2)
 # anov_m2.uni <- anova(mva_m2, p.uni = "adjusted")
-# saveRDS(anov_m2.uni, file = "output/anova_md_zone_999iter.rds")
-anov_m2.uni <- readRDS(file = "output/anova_md_zone_999iter.rds")
+# saveRDS(anov_m2.uni, file = "../output/anova_md_zone_999iter.rds")
+anov_m2.uni <- readRDS(file = "../output/anova_md_zone_999iter.rds")
 print(anov_m2.uni)
 ```
 
@@ -337,7 +337,7 @@ coefp <- merge(coefp,as.data.table(colSums(spp_no_rare),keep.rownames = TRUE), b
 
 colnames(coefp) <- c("SciName","Intercept.coef","Distance.coef","Time_diff.coef","Cosin_time.coef","Site_Har_Amasa.coef.coef","Site_Lahav.coef","Site_Lehavim.coef","Site_Mirsham.coef","Distance_time.coef", "Intercept.p","Distance.p","Time_diff.p","Cosin_time.p","Site.p","Distance_time.p","species_abundance")
 
-write.csv(coefp, "coefficients_MD_trans_zone.csv")
+write.csv(coefp, "../output/sfar/coefficients_MD_trans_zone.csv")
 
 print(coefp)
 
@@ -353,7 +353,7 @@ coef(glm.Canis.aureus)
 coef(mva_m2)
 print(sum(Canis.aureus))
 
-plot_model_interaction(P.anal = env_data, m = glm.Canis.aureus, eff2plot = "rescaled_Time.Diff", modvar2plot = "Distance_rescaled", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/md_zone/", legend_position = "bottom")
+plot_model_interaction(P.anal = env_data, m = glm.Canis.aureus, eff2plot = "rescaled_Time.Diff", modvar2plot = "Distance_rescaled", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "../output/sfar/", legend_position = "bottom")
 
 # interact_plot(model = glm.Canis.aureus, data=env_data, pred = rescaled_Time.Diff, modx = Distance_rescaled, modx.values = "plus-minus", partial.residuals = F, jitter = c(0.2), point.size = 3, rug = F, point.shape = F, interval = T, colors = "Dark2") + scale_x_continuous(breaks=c(-1.233466888,-0.601840099,0.028922631,0.66054942,1.291312151), labels=c("June 2014", "June 2016", "June 2018", "June 2020", "June 2022"), name = "Time")
 
@@ -398,9 +398,9 @@ coef(glm.Gazella.gazella)
 coef(mva_m2)
 print(sum(Gazella.gazella))
 
-source("functions/plot_model_effect_mammals.R")
+source("../functions/plot_model_effect_mammals.R")
 
-plot_model_effect(P.anal = env_data, m = glm.Gazella.gazella, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/md_zone/")
+plot_model_effect(P.anal = env_data, m = glm.Gazella.gazella, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "../output/sfar/")
 
 # effect_plot(model = glm.Gazella.gazella, data=env_data, pred = rescaled_Time.Diff, interval = T, plot.points = F, jitter = c(0.1,0), partial.residuals = F, colors = "Qual1") + ylim(0,15) + scale_x_continuous(breaks=c(-1.233466888,-0.601840099,0.028922631,0.66054942,1.291312151), labels=c("June 2014", "June 2016", "June 2018", "June 2020", "June 2022"), name = "Time")
 
@@ -412,7 +412,7 @@ coef(glm.Vulpes.vulpes)
 coef(mva_m2)
 print(sum(Vulpes.vulpes))
 
-plot_model_effect(P.anal = env_data, m = glm.Vulpes.vulpes, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "output/md_zone/")
+plot_model_effect(P.anal = env_data, m = glm.Vulpes.vulpes, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "../output/sfar/")
 
 # effect_plot(model = glm.Vulpes.vulpes, data=env_data, pred = rescaled_Time.Diff, interval = T, plot.points = F, jitter = c(0.1,0), partial.residuals = F, colors = "Qual1") + ylim(0,10) + scale_x_continuous(breaks=c(-1.233466888,-0.601840099,0.028922631,0.66054942,1.291312151), labels=c("June 2014", "June 2016", "June 2018", "June 2020", "June 2022"), name = "Time")
 
