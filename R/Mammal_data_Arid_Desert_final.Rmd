@@ -339,7 +339,7 @@ coef(mva_m0.nb)
 
 source("../functions/plot_interaction_mammals.R")
 
-plot_model_interaction(P.anal = Capra.nubiana.two.sites, m = glm.Capra.nubiana, eff2plot = "rescaled_Time.Diff", modvar2plot = "Distance_agri_rescaled", plot_points = FALSE, export_plot = TRUE, outpath = "../output", fontname = "Almoni ML v5 AAA")
+plot_model_interaction(P.anal = Capra.nubiana.two.sites, m = glm.Capra.nubiana, eff2plot = "rescaled_Time.Diff", modvar2plot = "Distance_agri_rescaled", plot_points = FALSE, export_plot = TRUE, outpath = "../output/arid/", fontname = "Almoni ML v5 AAA")
 
 # capra_interact <- interact_plot(model = glm.Capra.nubiana, data=Capra.nubiana.two.sites, pred = rescaled_Time.Diff, modx = Distance_agri_rescaled, partial.residuals = F, modx.values = "plus-minus", jitter = c(0.2), point.size = 3, rug = F, point.shape = F, interval = T, colors = "Dark2") + scale_x_continuous(breaks=c(-1.233466888,-0.601840099,0.028922631,0.66054942,1.291312151), labels=c("June 2014", "June 2016", "June 2018", "June 2020", "June 2022"), name = "Time")
 
@@ -375,7 +375,7 @@ glm.Gazella.dorcas <- glm.nb(Gazella.dorcas ~ Distance_agri_rescaled * rescaled_
 coef(glm.Gazella.dorcas)
 coef(mva_m0.nb)
 
-plot_model_interaction(P.anal = env_data, m = glm.Gazella.dorcas, eff2plot = "rescaled_Time.Diff", modvar2plot = "Distance_agri_rescaled", plot_points = FALSE, export_plot = TRUE, outpath = "../output", fontname = "Almoni ML v5 AAA", legend_position = "bottom")
+plot_model_interaction(P.anal = env_data, m = glm.Gazella.dorcas, eff2plot = "rescaled_Time.Diff", modvar2plot = "Distance_agri_rescaled", plot_points = FALSE, export_plot = TRUE, outpath = "../output/arid/", fontname = "Almoni ML v5 AAA", legend_position = "bottom")
 
 # interact_plot(model = glm.Gazella.dorcas, data=env_data, pred = rescaled_Time.Diff, modx = Distance_agri_rescaled, partial.residuals = F, modx.values = "plus-minus", jitter = c(0.2), point.size = 3, rug = F, point.shape = F, interval = T, colors = "Dark2") + scale_x_continuous(breaks=c(-1.233466888,-0.601840099,0.028922631,0.66054942,1.291312151), labels=c("June 2014", "June 2016", "June 2018", "June 2020", "June 2022"), name = "Time")
 
