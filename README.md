@@ -88,6 +88,15 @@ rmarkdown::render("R/Analyzing the Mammal data for State of Nature Report 2023.R
 
 ---
 
+## Running analysis in Posit Cloud
+- The project is available in a Posit Cloud work space named SoN_2023. Because of R version descepencies, if you run the analysis in Posit, you must install two packages *before* restoring the evnrionment. to do this, run the following commands in this order:
+install.packages("remotes")
+remotes::install_version("dbplyr", version = "2.5.0")
+remotes::install_version("systemfonts", version = "1.0.4")
+renv::restore()
+
+---
+
 ## Additonal notes regarding environment
 
  - R version:4.3.2  
