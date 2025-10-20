@@ -11,7 +11,7 @@
 
 <meta name="author" content="Ella Pasternak and Talia Gabay" />
 
-<meta name="date" content="2025-09-29" />
+<meta name="date" content="2025-10-20" />
 
 <title>Mammal data - Hearbaceus and dwarf shrub vegetation</title>
 
@@ -353,7 +353,7 @@ display: none;
 <h1 class="title toc-ignore">Mammal data - Hearbaceus and dwarf shrub
 vegetation</h1>
 <h4 class="author">Ella Pasternak and Talia Gabay</h4>
-<h4 class="date">2025-09-29</h4>
+<h4 class="date">2025-10-20</h4>
 
 </div>
 
@@ -695,7 +695,7 @@ drop1(mva_herb_nb)</code></pre>
 <p>#nothing has to be dropped.</p>
 <p>#the final model is mva_herb_nb</p>
 <pre class="r"><code>anov_mva_herb_nb &lt;- anova(mva_herb_nb, p.uni = &quot;adjusted&quot;)</code></pre>
-<pre><code>## Time elapsed: 0 hr 2 min 8 sec</code></pre>
+<pre><code>## Time elapsed: 0 hr 2 min 30 sec</code></pre>
 <pre class="r"><code>print(anov_mva_herb_nb)</code></pre>
 <pre><code>## Analysis of Deviance Table
 ## 
@@ -1212,7 +1212,7 @@ drop1(mva_herb_nb_no.wolf)</code></pre>
 #the final model is mva_herb_nb_no.wolf
 
 anov_mva_herb_nb_no.wolf &lt;- anova(mva_herb_nb_no.wolf, p.uni = &quot;adjusted&quot;)</code></pre>
-<pre><code>## Time elapsed: 0 hr 1 min 39 sec</code></pre>
+<pre><code>## Time elapsed: 0 hr 1 min 28 sec</code></pre>
 <pre class="r"><code>print(anov_mva_herb_nb_no.wolf)</code></pre>
 <pre><code>## Analysis of Deviance Table
 ## 
@@ -1376,7 +1376,7 @@ effplot_vulpes_time &lt;- plot_model_effect(P.anal = fox.herb,
 <pre class="r"><code>session_info()</code></pre>
 <pre><code>## ─ Session info ───────────────────────────────────────────────────────────────
 ##  setting  value
-##  version  R version 4.3.2 (2023-10-31 ucrt)
+##  version  R version 4.3.3 (2024-02-29 ucrt)
 ##  os       Windows 11 x64 (build 26100)
 ##  system   x86_64, mingw32
 ##  ui       RTerm
@@ -1384,8 +1384,8 @@ effplot_vulpes_time &lt;- plot_model_effect(P.anal = fox.herb,
 ##  collate  English_Israel.utf8
 ##  ctype    English_Israel.utf8
 ##  tz       Asia/Jerusalem
-##  date     2025-09-29
-##  pandoc   3.4 @ C:/Program Files/RStudio/resources/app/bin/quarto/bin/tools/ (via rmarkdown)
+##  date     2025-10-20
+##  pandoc   3.6.3 @ C:/Program Files/RStudio/resources/app/bin/quarto/bin/tools/ (via rmarkdown)
 ## 
 ## ─ Packages ───────────────────────────────────────────────────────────────────
 ##  ! package      * version    date (UTC) lib source
@@ -1409,7 +1409,7 @@ effplot_vulpes_time &lt;- plot_model_effect(P.anal = fox.herb,
 ##  P devtools     * 2.4.5      2022-10-11 [?] RSPM
 ##  P digest         0.6.37     2024-08-19 [?] RSPM
 ##  P doParallel     1.0.17     2022-02-07 [?] RSPM
-##    dplyr        * 1.1.1      2023-03-22 [1] RSPM (R 4.3.2)
+##  P dplyr        * 1.1.1      2023-03-22 [?] RSPM (R 4.3.2)
 ##  P ecoCopula    * 1.0.2      2022-03-02 [?] RSPM
 ##    ellipsis       0.3.2      2021-04-29 [1] RSPM (R 4.3.2)
 ##    emmeans      * 1.8.6      2023-05-11 [1] RSPM (R 4.3.2)
@@ -1518,8 +1518,8 @@ effplot_vulpes_time &lt;- plot_model_effect(P.anal = fox.herb,
 ##    zoo            1.8-11     2022-09-17 [1] RSPM (R 4.3.2)
 ## 
 ##  [1] C:/Users/Talia Gabay/Documents/SoN_2023_Mammals/renv/library/R-4.3/x86_64-w64-mingw32
-##  [2] C:/Users/Talia Gabay/AppData/Local/R/cache/R/renv/sandbox/R-4.3/x86_64-w64-mingw32/1e360f03
-##  [3] C:/Program Files/R/R-4.3.2/library
+##  [2] C:/Users/Talia Gabay/AppData/Local/R/cache/R/renv/sandbox/R-4.3/x86_64-w64-mingw32/7cdaab8d
+##  [3] C:/Program Files/R/R-4.3.3/library
 ## 
 ##  P ── Loaded and on-disk path mismatch.
 ## 
