@@ -27,11 +27,12 @@ library(interactions)
 library(car)
 library(ecoCopula)
 library(chron)
-library(data.table)
 library(readxl)
 library(performance)
+library(glmmTMB) 
 library(emmeans)
 library(Cairo)
+library(extrafont)
 
 #Load functions
 source("../functions/plot_alpha_diversity_cycle_num.R")

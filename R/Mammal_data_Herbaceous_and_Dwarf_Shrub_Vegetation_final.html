@@ -11,7 +11,7 @@
 
 <meta name="author" content="Ella Pasternak and Talia Gabay" />
 
-<meta name="date" content="2025-10-20" />
+<meta name="date" content="2025-11-11" />
 
 <title>Mammal data - Hearbaceus and dwarf shrub vegetation</title>
 
@@ -353,7 +353,7 @@ display: none;
 <h1 class="title toc-ignore">Mammal data - Hearbaceus and dwarf shrub
 vegetation</h1>
 <h4 class="author">Ella Pasternak and Talia Gabay</h4>
-<h4 class="date">2025-10-20</h4>
+<h4 class="date">2025-11-11</h4>
 
 </div>
 
@@ -695,7 +695,7 @@ drop1(mva_herb_nb)</code></pre>
 <p>#nothing has to be dropped.</p>
 <p>#the final model is mva_herb_nb</p>
 <pre class="r"><code>anov_mva_herb_nb &lt;- anova(mva_herb_nb, p.uni = &quot;adjusted&quot;)</code></pre>
-<pre><code>## Time elapsed: 0 hr 2 min 30 sec</code></pre>
+<pre><code>## Time elapsed: 0 hr 2 min 7 sec</code></pre>
 <pre class="r"><code>print(anov_mva_herb_nb)</code></pre>
 <pre><code>## Analysis of Deviance Table
 ## 
@@ -1212,7 +1212,7 @@ drop1(mva_herb_nb_no.wolf)</code></pre>
 #the final model is mva_herb_nb_no.wolf
 
 anov_mva_herb_nb_no.wolf &lt;- anova(mva_herb_nb_no.wolf, p.uni = &quot;adjusted&quot;)</code></pre>
-<pre><code>## Time elapsed: 0 hr 1 min 28 sec</code></pre>
+<pre><code>## Time elapsed: 0 hr 1 min 33 sec</code></pre>
 <pre class="r"><code>print(anov_mva_herb_nb_no.wolf)</code></pre>
 <pre><code>## Analysis of Deviance Table
 ## 
@@ -1384,7 +1384,7 @@ effplot_vulpes_time &lt;- plot_model_effect(P.anal = fox.herb,
 ##  collate  English_Israel.utf8
 ##  ctype    English_Israel.utf8
 ##  tz       Asia/Jerusalem
-##  date     2025-10-20
+##  date     2025-11-11
 ##  pandoc   3.6.3 @ C:/Program Files/RStudio/resources/app/bin/quarto/bin/tools/ (via rmarkdown)
 ## 
 ## ─ Packages ───────────────────────────────────────────────────────────────────
@@ -1416,24 +1416,24 @@ effplot_vulpes_time &lt;- plot_model_effect(P.anal = fox.herb,
 ##    estimability   1.4.1      2022-08-05 [1] RSPM (R 4.3.2)
 ##  P evaluate       1.0.5      2025-08-27 [?] RSPM
 ##  P extrafont    * 0.19       2023-01-18 [?] RSPM
-##  P extrafontdb    1.0        2012-06-11 [?] RSPM
+##    extrafontdb    1.1        2025-09-28 [1] RSPM (R 4.3.0)
 ##    fansi          1.0.4      2023-01-22 [1] RSPM (R 4.3.2)
 ##    farver         2.1.1      2022-07-06 [1] RSPM (R 4.3.2)
 ##    fastmap        1.1.1      2023-02-24 [1] RSPM (R 4.3.2)
 ##    flexmix        2.3-19     2023-03-16 [1] RSPM (R 4.3.2)
 ##  P foreach        1.5.2      2022-02-02 [?] RSPM
-##  P Formula        1.2-5      2023-02-24 [?] RSPM
+##    Formula        1.2-5      2023-02-24 [1] RSPM (R 4.3.0)
 ##    fs             1.6.1      2023-02-06 [1] RSPM (R 4.3.2)
 ##    generics       0.1.3      2022-07-05 [1] RSPM (R 4.3.2)
 ##    ggplot2      * 3.5.0      2024-02-23 [1] RSPM (R 4.3.2)
 ##  P glm2           1.2.1      2018-08-11 [?] RSPM
 ##  P glmmTMB      * 1.1.12     2025-08-18 [?] RSPM
 ##    glue           1.6.2      2022-02-24 [1] RSPM (R 4.3.2)
-##    gtable         0.3.3      2023-03-21 [1] RSPM (R 4.3.2)
+##    gtable         0.3.6      2024-10-25 [1] RSPM (R 4.3.0)
 ##    highr          0.10       2022-12-22 [1] RSPM (R 4.3.2)
 ##    htmltools      0.5.5      2023-03-23 [1] RSPM (R 4.3.2)
 ##    htmlwidgets    1.6.2      2023-03-17 [1] RSPM (R 4.3.2)
-##    httpuv         1.6.16     2025-04-16 [1] RSPM (R 4.3.0)
+##  P httpuv         1.6.9      2023-02-14 [?] RSPM (R 4.3.0)
 ##    insight        0.19.9     2024-03-15 [1] RSPM (R 4.3.2)
 ##    interactions * 1.1.5      2021-07-02 [1] RSPM (R 4.3.2)
 ##  P iterators      1.0.14     2022-02-05 [?] RSPM
@@ -1441,7 +1441,7 @@ effplot_vulpes_time &lt;- plot_model_effect(P.anal = fox.herb,
 ##  P jsonlite       2.0.0      2025-03-27 [?] RSPM
 ##    jtools       * 2.2.1      2022-12-02 [1] RSPM (R 4.3.2)
 ##  P kableExtra   * 1.4.0      2024-01-24 [?] RSPM
-##    knitr        * 1.42       2023-01-25 [1] RSPM (R 4.3.2)
+##    knitr          1.42       2023-01-25 [1] RSPM (R 4.3.2)
 ##    labeling       0.4.2      2020-10-20 [1] RSPM (R 4.3.2)
 ##    later          1.3.0      2021-08-18 [1] RSPM (R 4.3.2)
 ##    lattice      * 0.21-8     2023-04-05 [1] RSPM (R 4.3.2)
@@ -1450,7 +1450,7 @@ effplot_vulpes_time &lt;- plot_model_effect(P.anal = fox.herb,
 ##  P lmtest         0.9-40     2022-03-21 [?] RSPM
 ##  P magrittr       2.0.3      2022-03-30 [?] RSPM
 ##    MASS         * 7.3-58.3   2023-03-07 [1] RSPM (R 4.3.2)
-##  P Matrix       * 1.6-5      2024-01-11 [?] CRAN (R 4.3.3)
+##  P Matrix       * 1.6-5      2024-01-11 [3] CRAN (R 4.3.3)
 ##  P memoise        2.0.1      2021-11-26 [?] RSPM
 ##    mgcv           1.8-42     2023-03-02 [1] RSPM (R 4.3.2)
 ##    mime           0.12       2021-09-28 [1] RSPM (R 4.3.2)
@@ -1501,13 +1501,13 @@ effplot_vulpes_time &lt;- plot_model_effect(P.anal = fox.herb,
 ##    TH.data        1.1-2      2023-04-17 [1] RSPM (R 4.3.2)
 ##    tibble         3.2.1      2023-03-20 [1] RSPM (R 4.3.2)
 ##    tidyselect     1.2.0      2022-10-10 [1] RSPM (R 4.3.2)
-##    TMB            1.9.6      2023-08-11 [1] RSPM (R 4.3.2)
+##  P TMB            1.9.18     2025-10-13 [?] RSPM
 ##  P tweedie        2.3.5      2022-08-17 [?] RSPM
 ##    ucminf         1.1-4.1    2022-09-29 [1] RSPM (R 4.3.2)
 ##  P urlchecker     1.0.1      2021-11-30 [?] RSPM
 ##    usethis      * 3.1.0      2024-11-26 [1] RSPM (R 4.3.0)
 ##    utf8           1.2.3      2023-01-31 [1] RSPM (R 4.3.2)
-##    vctrs          0.6.1      2023-03-22 [1] RSPM (R 4.3.2)
+##    vctrs          0.6.5      2023-12-01 [1] RSPM (R 4.3.0)
 ##    vegan        * 2.6-4      2022-10-11 [1] RSPM (R 4.3.2)
 ##    viridisLite    0.4.1      2022-08-22 [1] RSPM (R 4.3.2)
 ##  P withr          3.0.2      2024-10-28 [?] RSPM
