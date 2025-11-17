@@ -439,8 +439,6 @@ plot(glm.Canis.lupus)
 
 plot_model_effect(P.anal = env_data, m = glm.Canis.lupus, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL, fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "../output/arid/")
 
-# effect_plot(model = glm.Canis.lupus, data=env_data, pred = rescaled_Time.Diff, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1") + scale_x_continuous(breaks=c(-1.233466888,-0.601840099,0.028922631,0.66054942,1.291312151), labels=c("June 2014", "June 2016", "June 2018", "June 2020", "June 2022"), name = "Time")
-
 ```
 
 n = 303 (total number of cameras)

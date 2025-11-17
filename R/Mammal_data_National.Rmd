@@ -1,0 +1,465 @@
+---
+title: "Mammal data - National"
+author: "Talia Gabay & Ron Chen"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+#Load packages
+library(devtools)
+library(rlang)
+library(ggplot2)
+library(data.table)
+library(dplyr)
+library(mvabund)
+library(kableExtra)
+library(lme4)
+library(MASS)
+library(vegan)
+library(jtools)
+library(interactions)
+library(car)
+library(ecoCopula)
+library(chron)
+library(readxl)
+library(performance)
+library(glmmTMB) 
+library(emmeans)
+library(Cairo)
+library(extrafont)
+
+#Load functions
+source("../functions/plot_alpha_diversity_cycle_num_national.R")
+source("../functions/plot_model_effect_mammals_national.R")
+source("../functions/plot_interaction_mammals_national.R")
+source_url("https://raw.githubusercontent.com/ronchen1/ron_functions/d2d0bab4dc65f29e53d316ae4098d0469711905b/R/multiplot.R", sha1 = "eef55df1963ba201f57cf44513f566298756fd4f")
+
+```
+
+
+
+```{r load data, include=FALSE}
+# Abundance table - all data
+all.mammal.abundances <- read.csv("../data/mammal_data_national.csv", header = TRUE, sep =",") %>% as.data.table()
+
+#Incidence table - all data
+#all.mammal.incidences <- read.csv("data/mammals.indcidence.matrix.csv", header = #TRUE, sep =",") %>% as.data.table()
+
+#Species names
+sci_names <- readxl::read_excel(path = '../data/Scientific.names.mammals.xlsx') %>% as.data.table() # the original file was never found
+
+#Make species list
+sci_names_list <- as.character(sort(unique(sci_names$SciName)))
+#Change species column names in abundance table 
+colnames(all.mammal.abundances)[27:40] <- sci_names_list 
+#colnames(all.mammal.abundances)[25:38] <- sci_names_list   
+
+#Mediterranean Desert Transition Zone without rare species
+#inland.sand.abundance.no.rare <- read.csv("data/mammals.abundance.matrix.inland.no.rare.csv"#, header = TRUE, sep =",") %>% as.data.table()
+
+P_byplot <- copy(all.mammal.abundances)
+P_byplot[,`:=`(richness = apply(.SD,1,(\(x) sum(x>0))),
+               abundance = apply(.SD,1,sum),
+               gma=apply(.SD,1,(\(x) exp( sum(log(x[x>0])) / sum(x>0) )))),
+         .SDcols = sci_names_list]
+
+```
+
+```{r load using function}
+
+P <- P_byplot
+```
+
+Monitoring started in 2014 (5 monitoring cycles)
+
+There are 53 sites total, Sites are located either near or far from Settlements or near or far from agriculture. Most sites have 2 plot types except for conifer forest and herbaceous and dwarf shrub vegetation (only far). 
+
+Inland sand also has a division according to dune status - shifting or semi-shifting. 
+
+Each site was sampled for all 5 monitoring cycles besides inland sands, where sites were monitored for 3 monitoring cycles (2,3,4)
+
+Let's first validate the data:
+
+```{r data validation}
+#include rare species in analysis
+P.anal <- copy(P) # set a fixed variable name for analysis, if want to switch between data WITH rare #species and data WITHOUT rare species then only change once here
+
+#Validate factors and levels
+
+P.anal$Settlements <- as.factor(P.anal$Settlements)
+print("Settlements has 2 levels")
+print(levels(P.anal$Settlements))
+
+P.anal$Agriculture <- as.factor(P.anal$Agriculture)
+print("Agriculture has 2 levels")
+print(levels(P.anal$Agriculture))
+
+P.anal$Unit <- as.factor(P.anal$Unit)
+print("Unit has 7 levels")
+print(levels(P.anal$Unit))
+
+P.anal$Site <- as.factor(P.anal$Site)
+print("Site has 53 levels")
+print(levels(P.anal$Site))
+
+P.anal$Transect <- as.factor(P.anal$Transect)
+print("Transect has 88 levels")
+print(levels(P.anal$Transect))
+
+
+```
+
+```{r richness data explore, fig.height = 8, fig.width = 10}
+print("RICHNESS WITH RARE SPECIES")
+plot_alpha_diversity(P, x_val = "Unit", y_val = "richness", ylab_val = "richness", xlab_val = "Unit", fill_val = "Unit")
+
+col_names <- c("Cycle_number",  "Deployment.id_new",	"Unit",	"Subunit",	"Site",	"Distance_rescaled", "Distance_agri_rescaled", "Year", "rescaled_Time.Diff", "sinus_Monitoring.Time.Diff", "cosinus_Monitoring.Time.Diff", "Transect", "Transect_with_date")
+
+spp <- all.mammal.abundances[,27:40]
+# filter out species with zero counts 
+print(colSums(spp))
+spp <- spp[,.SD,.SDcols = colSums(spp)>0]
+spp <- mvabund(spp)
+
+plot(spp ~ P.anal$Unit, overall.main="raw abundances", transformation = "no")
+
+
+my_cols <- c("blue", "darkgreen", "red", "orange", "purple", "brown", "black")
+dotchart(P.anal$richness, ylab = "Unit",
+         groups = P.anal$Unit, gcolor = my_cols,
+         color = my_cols[P.anal$Unit],
+         cex = 0.9,  pch = 1, xlab = "richness")
+
+kable(summary(P.anal[,.(richness, abundance, rescaled_Time.Diff, cosinus_Monitoring.Time.Diff, sinus_Monitoring.Time.Diff, Unit, Site, Transect, Distance_rescaled, Distance_agri_rescaled)]))
+pairs(P.anal[,lapply(X = .SD,FUN = as.numeric),.SDcols=c("sinus_Monitoring.Time.Diff", "cosinus_Monitoring.Time.Diff","rescaled_Time.Diff","Unit","Site","Transect", "Distance_rescaled", "Distance_agri_rescaled")])
+kable(cor(P.anal[,lapply(X = .SD,FUN = as.numeric),.SDcols=c("sinus_Monitoring.Time.Diff", "cosinus_Monitoring.Time.Diff","rescaled_Time.Diff","Unit","Site","Transect", "Distance_rescaled", "Distance_agri_rescaled")]))
+meanvar.plot(spp, xlab = "mean abundance of a given species across sites", ylab = "variance of the abundance of a given species across sites")
+```
+
+```{r model richness, warning=FALSE}
+
+# mdl_r.poiss.int <- glm(data = P.anal, formula = richness ~ rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Unit + Site + Transect, family = poisson)
+# od <- mdl_r.poiss.int$deviance/mdl_r.poiss.int$df.residual
+# print("Estimating overdispersion parameter phi: (Res. Dev.)/(n-p) where n=number of observations; p=number of parameters in the model.")
+# print(paste0('od = ',od))
+```
+
+
+```{r model selection richness}
+
+# m0 <- glm(data = P.anal, formula =  richness ~ rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff, family = poisson)
+# AIC(m0)
+# 
+# me0transect <- glmer(data = P.anal, formula =   richness ~  rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff +  (1|Transect), family = poisson, verbose = 1)
+# AIC(me0transect)
+# 
+# me0site <- glmer(data = P.anal, formula =   richness ~ rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff +  (1|Site), family = poisson, verbose = 1)
+# AIC(me0site)
+# 
+# me0unit <- glmer(data = P.anal, formula =   richness ~ rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff +  (1|Unit), family = poisson, verbose = 1)
+# AIC(me0unit)
+
+```
+
+
+```{r model selection richness 3}
+# m1 <- glmer(data = P.anal, formula =   richness ~ rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff +  (1|Unit), family = poisson)
+# drop1(m1)
+```
+
+```{r model selection richness 4}
+# m2 <- glmer(data = P.anal, formula =   richness ~ rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + (1|Unit), family = poisson)
+# drop1(m2)
+```
+
+
+```{r model interpretation richness}
+# summ(m2, exp = TRUE, digits=3)
+# effect_plot(model = m2, data=P.anal, pred = rescaled_Time.Diff, interval = T, plot.points = F, jitter = c(0.1,0), point.size = 3, cat.pred.point.size = 4, partial.residuals = F, colors = "Qual1", main.title = "Temporal effect on species richness")
+
+```
+
+
+#### Community analysis using package MVabund
+
+## Rare species filtering - minimum of 40 deployments
+
+```{r print table with rare species}
+abundance_and_cameras <- as.data.table(all.mammal.abundances[,c(5,27:40)])
+dim(abundance_and_cameras)
+canisau <- abundance_and_cameras[,2] > 0
+sum(canisau)
+canislup <- abundance_and_cameras[,3] > 0
+sum(canislup)
+capra <- abundance_and_cameras[,4] > 0
+sum(capra)
+Doma <- abundance_and_cameras[,5] > 0
+sum(Doma)
+Equus <- abundance_and_cameras[,6] > 0
+sum(Equus)
+Gazellador <- abundance_and_cameras[,7] > 0
+sum(Gazellador)
+Gazellagaz <- abundance_and_cameras[,8] > 0
+sum(Gazellagaz)
+Hyaena <- abundance_and_cameras[,9] > 0
+sum(Hyaena)
+Hystrix <- abundance_and_cameras[,10] > 0
+sum(Hystrix)
+Lepus <- abundance_and_cameras[,11] > 0
+sum(Lepus)
+Meles <- abundance_and_cameras[,12] > 0
+sum(Meles)
+Oryx <- abundance_and_cameras[,13] > 0
+sum(Oryx)
+Sus <- abundance_and_cameras[,14] > 0
+sum(Sus)
+Vulpus <- abundance_and_cameras[,15] > 0
+sum(Vulpus)
+```
+
+2847 cameras total,  
+
+Species for national analyses + a minimum of 40 cameras - Canis aureus, Canis lupus, Hyaena hyaena, Hystrix indica, Lepus capensis and vulpus vulpus
+
+```{r filtering out rare species}
+
+spp_no_rare <- all.mammal.abundances[,27:40]
+print(colSums(spp_no_rare))
+# filter out species 
+spp_no_rare <- mvabund(spp_no_rare[,c(-3:-7,-11:-13)])
+print(colSums(spp_no_rare))
+
+```
+
+Left with 6 species
+
+```{r Common species max count}
+
+max(abundance_and_cameras$'Canis aureus')
+max(abundance_and_cameras$'Canis lupus')
+max(abundance_and_cameras$'Hyaena hyaena')
+max(abundance_and_cameras$'Hystrix indica')
+max(abundance_and_cameras$'Lepus capensis')
+max(abundance_and_cameras$'Vulpes vulpes')
+
+```
+
+
+```{r community analysis MVabund, fig.height=8, fig.width=10}
+
+env_data <- all.mammal.abundances[,..col_names]
+
+mva_m0.po <- manyglm(formula = spp_no_rare ~ rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Site + Unit, family = "poisson", data = env_data)
+
+mva_m0.nb <- manyglm(formula = spp_no_rare ~ rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Site + Unit, family = "negative.binomial", data = env_data)
+
+aic_dt <- data.table(nb = mva_m0.nb$aic, po=mva_m0.po$aic)
+colMeans(aic_dt)
+print("POISSON")
+plot(mva_m0.po, which=1:3)
+print("NEGATIVE BINOMIAL")
+plot(mva_m0.nb, which=1:3)
+
+```
+
+prefer negative binomial because standardized residuals are smaller.
+
+```{r community analysis MVabund 2}
+
+mva_m1 <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff, data = env_data)
+aic_dt$nb1 <- mva_m1$aic
+colMeans(aic_dt)
+
+mva_m2 <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Site, data = env_data)
+aic_dt$nb2 <- mva_m2$aic
+colMeans(aic_dt)
+
+mva_m3 <- manyglm(formula = spp_no_rare ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Unit, data = env_data)
+aic_dt$nb3 <- mva_m2$aic
+colMeans(aic_dt)
+
+```
+
+
+Site and unit improve the model. 
+
+
+##Many GLM with site
+
+```{r community analysis MVabund model selection (Site)}
+mva_m0.nb.site <- manyglm(formula = spp_no_rare ~ rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Site, family = "negative.binomial", data = env_data)
+drop1(mva_m0.nb.site)
+```
+
+Dropped sin time
+
+```{r community analysis MVabund model selection 2 (Site)}
+mva_m2_site <- manyglm(formula = spp_no_rare ~ rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + Site, family = "negative.binomial", data = env_data)
+drop1(mva_m2_site)
+```
+
+Dropped cosin time
+
+```{r community analysis MVabund model selection 3 (Site)}
+mva_m2_site <- manyglm(formula = spp_no_rare ~ rescaled_Time.Diff + Site, family = "negative.binomial", data = env_data)
+drop1(mva_m2_site)
+```
+
+
+```{r community analysis MVabund model selection 4 (Site)}
+# mva_m2 <- manyglm(formula = spp_no_rare ~ rescaled_Time.Diff + Site, family = "negative.binomial", data = env_data)
+# drop1(mva_m2)
+```
+
+```{r community analysis MVabund model validation (Site), fig.height=8, fig.width=10}
+plot(mva_m2_site, which=1:3)
+```
+
+```{r community analysis MVabund model interpretation (Site)}
+#summ_m2_site <- summary(mva_m2_site)
+summ_m2_site <- readRDS("../output/national/manyglm_national_site.RDS")
+print(summ_m2_site)
+#saveRDS(summ_m2_site, "output/national/manyglm_national_site.RDS")
+#anov_m2.uni_site <- anova(mva_m2_site, p.uni = "adjusted")
+#saveRDS(anov_m2.uni_site, "output/national/Anova_national_site.RDS")
+anov_m2.uni_site <- readRDS("../output/national/Anova_national_site.RDS")
+print(anov_m2.uni_site)
+```
+
+**Multivariate test shows that site and time difference significantly affect species composition**
+
+
+```{r community analysis MVabund model interpretation - coefficients (Site)}
+
+coefp_site <- merge(data.table(t(coef(mva_m2_site)/log(2)),keep.rownames=TRUE), data.table(t(anov_m2.uni_site$uni.p), keep.rownames = TRUE), by = "rn") # coefficients are exponentiated because the link function used for poisson is log -> above 1 is positive and below 1 is negative
+# add total species abundance
+coefp_site <- merge(coefp_site,as.data.table(colSums(spp_no_rare),keep.rownames = TRUE), by.x = "rn", by.y = "V1")
+
+#colnames(coefp_site) <- c("SciName","Intercept.coef","Time_diff.coef","Cosin_time.coef","Sin_time.coef","Herbaceous_dwarf_shrub.coef","Inland_sands.coef","MD_tranzition_zone.coef","Maquis.coef","Negev_highlands.coef", "Conifer.coef", "Intercept.p","Time_diff.p","Cosin_time.p","Sin_time.p","Site.p","species_abundance")
+
+write.csv(coefp_site, "../output/national/coefficients_National_data_Sites.csv")
+
+print(coefp_site)
+
+```
+
+Time is only significant for Lepus capensis, single species model includes only sites with at least 1 observation
+
+```{r Single species models (Site)}
+
+# Subset by sites
+sites2keep <- all.mammal.abundances[,sum(`Lepus capensis`),keyby=Site][V1>0,Site]
+Lepus.subset.Sites <- all.mammal.abundances[Site %in% sites2keep][,`:=`(Site=factor(Site))]
+dim(Lepus.subset.Sites)
+#Lepus.capensis <- spp_no_rare[,"Lepus.capensis"]
+glm.Lepus.capensis <- glm.nb(formula = `Lepus capensis` ~ rescaled_Time.Diff + Site, data = Lepus.subset.Sites)
+coef(glm.Lepus.capensis)
+
+effect_plot(model = glm.Lepus.capensis, data=Lepus.subset.Sites, pred = rescaled_Time.Diff, interval = T, plot.points = F, jitter = c(0.1,0),
+            partial.residuals = F, colors = "Qual1", at = list(Site="Yeruham")) +
+  scale_x_continuous(breaks=c(-1.86423,-1.233466888,-0.601840099,0.028922631,0.66054942,1.291312151),
+                     labels=c("June 2012", "June 2014", "June 2016", "June 2018", "June 2020", "June 2022"), name = "Time")
+
+plot_model_effect(P.anal = Lepus.subset.Sites, m = glm.Lepus.capensis, eff2plot = "rescaled_Time.Diff", plot_points=FALSE, plot_residuals=FALSE, export_plot=TRUE, ylabel = NULL,
+                  fontname = "Almoni ML v5 AAA", fontsize=22, pdf_width=160, outpath = "../output/national/", at_list = list(Site="Yeruham"))
+
+```
+
+# Analysis of only far transects 
+
+```{r Subset only far}
+
+only.far <- P.anal[grepl("Far",Settlements) | grepl("Far", Agriculture),][order(Unit,Site)]
+dim(only.far)
+
+print(nrow(only.far[Unit == "Arid Desert"]))
+print(nrow(only.far[Unit == "Herbaceous and Dwarf Shrub Vegetation"]))
+print(nrow(only.far[Unit == "Inland Sands"]))
+print(nrow(only.far[Unit == "Mediterranean Desert Transition Zone"]))
+print(nrow(only.far[Unit == "Mediterranean Maquis"]))
+print(nrow(only.far[Unit == "Negev Highlands"]))
+print(nrow(only.far[Unit == "Planted Conifer Forests"]))
+
+```
+
+# MVabund only far
+
+# Species filtering - national species + minimum 40 cameras
+
+```{r print table with rare species (only far)}
+abundance_and_cameras_far <- as.data.table(only.far[,c(5,27:40)])
+dim(abundance_and_cameras_far)
+canisau <- abundance_and_cameras_far[,2] > 0
+sum(canisau)
+canislup <- abundance_and_cameras_far[,3] > 0
+sum(canislup)
+Hyaena <- abundance_and_cameras_far[,9] > 0
+sum(Hyaena)
+Hystrix <- abundance_and_cameras_far[,10] > 0
+sum(Hystrix)
+Lepus <- abundance_and_cameras_far[,11] > 0
+sum(Lepus)
+Vulpus <- abundance_and_cameras_far[,15] > 0
+sum(Vulpus)
+```
+
+1815 cameras total,  
+
+Species for national analyses + a minimum of 40 cameras - Canis aureus, Canis lupus, Hyaena hyaena, Hystrix indica, Lepus capensis and vulpus vulpus
+
+```{r filtering out rare species (only far)}
+
+spp_no_rare_far <- only.far[,27:40]
+print(colSums(spp_no_rare_far))
+# filter out species 
+spp_no_rare_far <- mvabund(spp_no_rare_far[,c(-3:-7,-11:-13)])
+print(colSums(spp_no_rare_far))
+
+```
+
+Left with 6 species
+
+```{r community analysis MVabund (only far), fig.height=8, fig.width=10}
+
+env_data_far <- only.far[,..col_names]
+
+mva_m0.po.far <- manyglm(formula = spp_no_rare_far ~ rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Site + Unit, family = "poisson", data = env_data_far)
+
+mva_m0.nb.far <- manyglm(formula = spp_no_rare_far ~ rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Site + Unit, family = "negative.binomial", data = env_data_far)
+
+aic_dt <- data.table(nb = mva_m0.nb.far$aic, po=mva_m0.po.far$aic)
+colMeans(aic_dt)
+print("POISSON")
+plot(mva_m0.po.far, which=1:3)
+print("NEGATIVE BINOMIAL")
+plot(mva_m0.nb.far, which=1:3)
+
+```
+
+prefer negative binomial because standardized residuals are smaller.
+
+```{r community analysis MVabund 2 (only far)}
+
+mva_m1_far <- manyglm(formula = spp_no_rare_far ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff, data = env_data_far)
+aic_dt$nb1 <- mva_m1_far$aic
+colMeans(aic_dt)
+
+mva_m2_far <- manyglm(formula = spp_no_rare_far ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Site, data = env_data_far)
+aic_dt$nb2 <- mva_m2_far$aic
+colMeans(aic_dt)
+
+mva_m3_far <- manyglm(formula = spp_no_rare_far ~ Distance_rescaled * rescaled_Time.Diff + cosinus_Monitoring.Time.Diff + sinus_Monitoring.Time.Diff + Unit, data = env_data_far)
+aic_dt$nb3 <- mva_m3_far$aic
+colMeans(aic_dt)
+
+```
+### Session information
+
+```{r}
+session_info()
+```
+
